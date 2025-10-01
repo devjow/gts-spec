@@ -1,0 +1,286 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GTS Identifier Test Cases",
+  "description": "Collection of valid and invalid GTS identifier examples based on the specification",
+  "valid": [
+    {
+      "id": "gts.x.core.events.event.v1~",
+      "description": "Simple type identifier with major version only",
+      "category": "type",
+      "tests": ["basic_format", "type_marker", "major_version_only"]
+    },
+    {
+      "id": "gts.x.core.objects_registry.object_a.v1.0",
+      "description": "Simple instance identifier with major and minor version",
+      "category": "instance",
+      "tests": ["basic_format", "instance_marker", "full_version"]
+    },
+    {
+      "id": "gts.abc.commerce.orders.order.v2.15~",
+      "description": "Type with multi-digit minor version",
+      "category": "type",
+      "tests": ["multi_digit_version", "vendor_name"]
+    },
+    {
+      "id": "gts.vendor.pkg.ns.type.v0~",
+      "description": "Version 0 is valid",
+      "category": "type",
+      "tests": ["version_zero"]
+    },
+    {
+      "id": "gts.v123.p456.n789.t000.v999.888~",
+      "description": "Segments with digits, large version numbers",
+      "category": "type",
+      "tests": ["digits_in_segments", "large_version"]
+    },
+    {
+      "id": "gts.x.pkg._.type.v1~",
+      "description": "Placeholder in namespace position",
+      "category": "type",
+      "tests": ["placeholder_usage"]
+    },
+    {
+      "id": "gts.myvendor.mypackage.mynamespace.mytype.v1.0~",
+      "description": "Long segment names",
+      "category": "type",
+      "tests": ["long_segments"]
+    },
+    {
+      "id": "gts.x.core.events.event.v1~abc.app._.custom_event.v1~",
+      "description": "Chained type identifiers",
+      "category": "type_chain",
+      "tests": ["chaining", "inheritance"]
+    },
+    {
+      "id": "gts.x.core.events.event.v1~abc.app._.custom_event.v1.2",
+      "description": "Chained with instance at the end",
+      "category": "instance_chain",
+      "tests": ["chaining", "instance_termination"]
+    },
+    {
+      "id": "gts.a.b.c.d.v1~e.f.g.h.v2~i.j.k.l.v3~",
+      "description": "Multiple chain segments (all types)",
+      "category": "type_chain",
+      "tests": ["multi_chain", "inheritance_chain"]
+    },
+    {
+      "id": "gts.vendor_name.pkg_123.ns_abc.type_xyz.v10.5~",
+      "description": "Underscores and digits mixed in segments",
+      "category": "type",
+      "tests": ["mixed_characters"]
+    },
+    {
+      "id": "gts.x.core.api.endpoint.v0.1",
+      "description": "Version 0 with minor version (instance)",
+      "category": "instance",
+      "tests": ["version_zero_minor"]
+    },
+    {
+      "id": "gts.a1.b2.c3.d4.v100.200~",
+      "description": "Single character with digit segments, large versions",
+      "category": "type",
+      "tests": ["short_segments", "large_versions"]
+    },
+    {
+      "id": "gts.x.core.events.event.v1~vendor.app.derived.event.v2~vendor.app._.event.v2.0",
+      "description": "Chain with matching versions in different formats",
+      "category": "instance_chain",
+      "tests": ["version_format_variation"]
+    },
+    {
+      "id": "gts.longvendorname.longpackagename.longnamespacename.longtypename.v1~",
+      "description": "Maximum reasonable segment lengths",
+      "category": "type",
+      "tests": ["long_segment_names"]
+    },
+    {
+      "id": "gts.x.mq.messages._._.v1",
+      "description": "Placeholder with underscore prefix in type name, not recommended but allowed",
+      "category": "instance",
+      "tests": ["underscore_in_type"]
+    },
+    {
+      "id": "gts._a.b2.c3._d4.v1~",
+      "description": "Segments starting with underscore and containing digits",
+      "category": "type",
+      "tests": ["underscore_start", "mixed_characters"]
+    },
+    {
+      "id": "gts.x.core.events.event.v1~a.b.c.d.v1~e.f.g.h.v1~i.j.k.l.v1.0",
+      "description": "Long chain ending with instance",
+      "category": "instance_chain",
+      "tests": ["long_chain", "instance_termination"]
+    },
+    {
+      "id": "gts.v.v.v.v.v1~",
+      "description": "Single letter 'v' as segment names (not version)",
+      "category": "type",
+      "tests": ["letter_v_segment"]
+    }
+  ],
+  "invalid": [
+    {
+      "id": "GTS.x.core.events.event.v1~",
+      "description": "Uppercase prefix (must be lowercase)",
+      "reason": "case_sensitivity",
+      "violation": "GTS identifiers must be lowercase"
+    },
+    {
+      "id": "gts.X.core.events.event.v1~",
+      "description": "Uppercase in vendor segment",
+      "reason": "case_sensitivity",
+      "violation": "All segments must be lowercase"
+    },
+    {
+      "id": "gts.x.core.events.event.V1~",
+      "description": "Uppercase V in version",
+      "reason": "case_sensitivity",
+      "violation": "Version prefix must be lowercase 'v'"
+    },
+    {
+      "id": "x.core.events.event.v1~",
+      "description": "Missing 'gts.' prefix",
+      "reason": "missing_prefix",
+      "violation": "Must start with 'gts.' prefix"
+    },
+    {
+      "id": "gts.x.core.events.event.1~",
+      "description": "Missing 'v' before version number",
+      "reason": "version_format",
+      "violation": "Version must start with 'v'"
+    },
+    {
+      "id": "gts.x.core.events.event.v1.2.3~",
+      "description": "Patch version not allowed (three version components)",
+      "reason": "version_format",
+      "violation": "Only major.minor allowed, no patch version"
+    },
+    {
+      "id": "gts.x.core.events.event.v-1~",
+      "description": "Negative version number",
+      "reason": "version_format",
+      "violation": "Version numbers must be non-negative integers"
+    },
+    {
+      "id": "gts.x.core.events.event.v1.~",
+      "description": "Trailing dot after minor version",
+      "reason": "version_format",
+      "violation": "Invalid version format"
+    },
+    {
+      "id": "gts.x.core.events.event.v01~",
+      "description": "Leading zero in major version",
+      "reason": "version_format",
+      "violation": "Version numbers cannot have leading zeros (except 0 itself)"
+    },
+    {
+      "id": "gts.x.core.events.event.v1.01~",
+      "description": "Leading zero in minor version",
+      "reason": "version_format",
+      "violation": "Version numbers cannot have leading zeros"
+    },
+    {
+      "id": "gts.1vendor.core.events.event.v1~",
+      "description": "Segment starting with digit",
+      "reason": "segment_format",
+      "violation": "Segments must start with letter or underscore"
+    },
+    {
+      "id": "gts.x.core-events.events.event.v1~",
+      "description": "Hyphen in segment (invalid character)",
+      "reason": "segment_format",
+      "violation": "Segments can only contain lowercase letters, digits, and underscores"
+    },
+    {
+      "id": "gts.x.core.events..event.v1~",
+      "description": "Empty segment (double dot)",
+      "reason": "segment_format",
+      "violation": "Segments cannot be empty"
+    },
+    {
+      "id": "gts.x.core.events.event.v1.0~~",
+      "description": "Double tilde at end",
+      "reason": "format_error",
+      "violation": "Only one trailing tilde allowed"
+    },
+    {
+      "id": "gts.x.core.events.event.v1~gts.abc.app._.custom.v1~",
+      "description": "Repeated 'gts.' prefix in chain",
+      "reason": "chaining_error",
+      "violation": "Only first segment should have 'gts.' prefix"
+    },
+    {
+      "id": "gts.x.core.events.event.v1.abc.app.namespace.custom.v1",
+      "description": "Chain with non-type in middle (missing ~)",
+      "reason": "chaining_error",
+      "violation": "All chain segments except last must be types (end with ~)"
+    },
+    {
+      "id": "gts.x.core.events.event~",
+      "description": "Missing version entirely",
+      "reason": "version_required",
+      "violation": "Version is required"
+    },
+    {
+      "id": "gts.x.core.events.v1~",
+      "description": "Only 3 segments after the gts prefix (missing type)",
+      "reason": "segment_count",
+      "violation": "Must have exactly: initial gts prefix, then 4 segments: vendor.package.namespace.type, then version"
+    },
+    {
+      "id": "gts.x.core.namespace.type.v1~a.b.c.v1",
+      "description": "Only 3 segments in the right-most chain segment (missing type)",
+      "reason": "segment_count",
+      "violation": "Must have exactly 4 segments: vendor.package.namespace.type, then version"
+    },
+    {
+      "id": " gts.x.core.events.event.v1~ ",
+      "description": "Leading/trailing whitespace",
+      "reason": "whitespace",
+      "violation": "No leading or trailing whitespace allowed"
+    },
+  ],
+  "edge_cases": [
+    {
+      "id": "gts.a.b.c.d.v0~",
+      "description": "Version 0 is valid",
+      "valid": true,
+      "note": "Version 0 is explicitly allowed"
+    },
+    {
+      "id": "gts._._._._.v1~",
+      "description": "All placeholders",
+      "valid": true,
+      "note": "Underscore is valid as placeholder for any segment"
+    },
+    {
+      "id": "gts.x.y.z.a.v999999.888888~",
+      "description": "Very large version numbers",
+      "valid": true,
+      "note": "No upper limit on version numbers specified"
+    },
+    {
+      "id": "a".repeat(1024),
+      "description": "Exceeds 1024 character limit",
+      "valid": false,
+      "note": "Total identifier length must not exceed 1024 characters"
+    },
+    {
+      "id": "gts.x.core.events.event.v1.0.0~",
+      "description": "Three-part version (patch)",
+      "valid": false,
+      "note": "Only major.minor format allowed, no patch version"
+    }
+  ],
+  "notes": [
+    "GTS identifiers are case-sensitive and must be lowercase",
+    "Maximum total length is 1024 characters",
+    "Segments must match pattern: [a-z_][a-z0-9_]*",
+    "Version format: v<MAJOR>[.<MINOR>] where MAJOR and MINOR are non-negative integers",
+    "Type identifiers end with '~', instance identifiers do not",
+    "In chains, only the first segment has 'gts.' prefix",
+    "All chain segments except the last must be types (end with ~)",
+    "Version numbers cannot have leading zeros (except 0 itself)",
+    "Underscore '_' can be used as a placeholder for any segment, but it is recommended for the namespace segment only"
+  ]
+}
