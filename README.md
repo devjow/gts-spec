@@ -183,7 +183,7 @@ non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 3. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It's recommended to use placeholder only for the `<namespace>` segment.
 
-4. **Normalization**: GTS identifiers are case-sensitive and must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
+4. **Normalization**: GTS identifiers are must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
 
 5. **Reserved prefix**: The `gts.` prefix is mandatory and reserved. Future versions may introduce alternative prefixes but will maintain backward compatibility.
 
@@ -216,21 +216,20 @@ GTS identifiers enable the following operations and use cases:
 
 #### 3.1 JSON and JSON Schema examples
 
-**Practical scenario:**
+**Practical Scenario:**
 
-Vendor `X` operates an event manager platform. Each event must include a `gtsId` field. The platform processes events as follows:
+Consider a vendor, `X`, who operates a multi-tenant event management platform. This platform acts as a broker, receiving events from various producers (e.g., third-party applications) and routing them to the correct handlers. According to the platform's specification, every event must contain a `gtsId` field that references a registered event schema. This allows the platform to validate, authorize, and route events of different kinds, such as general-purpose events, audit logs, and custom messages.
 
-1. **Schema Resolution**: Parse `gtsId` to extract the rightmost type (e.g., from `gts.x.core.events.event.v1~abc.app._.custom_event.v1~abc.app._.custom_event.v1.2`, extract `abc.app._.custom_event.v1~`)
+Now, imagine a second vendor, `ABC`, develops an application named `APP` that runs on vendor `X`'s platform. When a customer makes an online purchase within `APP`, the application needs to emit a `store.purchase_audit_event` to the event manager.
 
-2. **Validation**: Load the JSON Schema for `gts.x.core.events.event.v1~abc.app._.custom_event.v1~` and validate the event payload
+In this scenario, vendor `X`'s platform must be able to:
+1.  **Authorize** the incoming event, ensuring that vendor `ABC` is permitted to emit it.
+2.  **Validate** the event's structure against the correct schema.
+3.  **Ensure data isolation**, making the event visible only to authorized parties (e.g., vendor `ABC`'s `APP` administrators) and not to other tenants.
 
-3. **Authorization** (optional, implementation-defined): Check if the producer is authorized to emit events of type `abc.app._.custom_event.v1`
+Let's define the schemas required to implement this.
 
-4. **Routing & Auditing**: Use the chain to route events to appropriate handlers and create audit trails per vendor/application
-
-This approach allows vendor `ABC` to define custom event types while maintaining compatibility with the base `gts.x.core.events.event.v1~` schema.
-
-Base event schema (system type) defined by vendor `X`:
+First, let's define the base event schema for vendor `X` event manager:
 
 ```json
 {
@@ -240,21 +239,23 @@ Base event schema (system type) defined by vendor `X`:
   "type": "object",
   "properties": {
     "gtsId": { "type": "string", "$comment": "This field serves as the unique identifier for the event schema" },
-    "topic_id": { "type": "string" },
-    "payload": { "type": "object", "additionalProperties": true }
+    "id": { "type": "string", "$comment": "This field serves as the unique identifier for the event instance" },
+    "timestamp": { "type": "integer", "$comment": "timestamp in seconds since epoch" },
+    "payload": { "type": "object", "additionalProperties": true, "$comment": "Event payload... can be anything" }
   },
-  "required": ["gtsId", "payload"],
+  "required": ["gtsId", "id", "timestamp", "payload"],
   "additionalProperties": false
 }
 ```
 
-The derived event schema is registered by vendor `ABC` within the `App` application, which is part of vendor `X`'s event manager. Vendor `ABC` enhances the base payload object with a specific schema:
+Now, let's define the audit event schema for vendor `X` event manager:
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.event.v1~abc.app._.custom_event.v1~",
-  "title": "Vendor ABC Custom Event",
+  "$id": "gts.x.core.events.event.v1~x.core.audit.event.v1~",
+  "title": "Audit Event, derived from Base Event",
+  "type": "object",
   "allOf": [
     { "$ref": "gts.x.core.events.event.v1~" },
     {
@@ -263,35 +264,88 @@ The derived event schema is registered by vendor `ABC` within the `App` applicat
         "payload": {
           "type": "object",
           "properties": {
-            "id": { "type": "string" },
-            "amount": { "type": "number" },
-            "currency": { "type": "string" },
-            "metadata": { "type": "object", "additionalProperties": true }
+            "user_id": { "type": "string", "$comment": "User ID" },
+            "user_agent": { "type": "string", "$comment": "User agent" },
+            "ip_address": { "type": "string", "$comment": "IP address" },
+            "data": { "type": "object", "additionalProperties": true, "$comment": "Audit event custom data... can be anything" }
           },
-          "required": ["id", "amount", "currency"],
+          "required": ["user_id", "user_agent", "ip_address", "data"],
           "additionalProperties": false
         }
       },
       "required": ["payload"]
     }
-  ]
+  ],
 }
 ```
 
-Example JSON instance implementing the derived schema — the `gtsId` shows the chain and the instance identifier as the right-most element:
+Then, let's define the schema of specific audit event registered by vendor `ABC` application `APP`:
 
 ```json
 {
-  "gtsId": "gts.x.core.events.event.v1~abc.app._.custom_event.v1~abc.app._.custom_event.v1.2",
-  "topic_id": "gts.x.core.events.topic.v1.0~x.core._.custom_topic.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gts.x.core.events.event.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
+  "title": "Vendor ABC Custom Purchase Audit Event from app APP",
+  "type": "object",
+  "allOf": [
+    { "$ref": "gts.x.core.events.event.v1~x.core.audit.event.v1~" },
+    {
+      "type": "object",
+      "properties": {
+        "payload": {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "purchase_id": { "type": "string" },
+                "amount": { "type": "number" },
+                "currency": { "type": "string" },
+                "price": { "type": "number" }
+              },
+              "required": ["purchase_id", "amount", "currency", "price"],
+              "additionalProperties": false
+            }
+          },
+        }
+      },
+      "required": ["payload"]
+    }
+  ],
+}
+```
+
+Finally, when the producer (the application `APP` of vendor `ABC`) emits the event, it uses the `gtsId` to identify the event schema and provide required payload:
+
+```json
+{
+  "gtsId": "gts.x.core.events.event.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
+  "id": "e81307e5-5ee8-4c0a-8d1f-bd98a65c517e",
+  "timestamp": 1743466200000000000,
   "payload": {
-    "id": "evt-123",
-    "amount": 99.95,
-    "currency": "USD",
-    "metadata": { "campaign": "fall-sale" }
+    "user_id": "9c905ae1-f0f3-4cfb-aa07-5d9a86219abe",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "ip_address": "127.0.0.1",
+    "data": {
+      "purchase_id": "cats_drinking_bowl_42",
+      "amount": 2,
+      "currency": "USD",
+      "price": 19.95
+    }
   }
 }
 ```
+
+When the event manager receives the event it processes it as follows:
+
+1. **Schema Resolution**: Parse the `gtsId` to identify the full chain. The event manager can see that this instance conforms to `gts.x.core.events.event.v1~`, `...~x.core.audit.event.v1~`, and finally `...~abc.app.store.purchase_audit_event.v1.2~`.
+
+2. **Validation**: Load the most specific JSON Schema (`...~abc.app.store.purchase_audit_event.v1.2~`) and validate the event object against it. It would automatically mean the event body is validated against any other schema in the chain (e.g., the base event and the base audit event).
+
+3. **Authorization**: Check if the producer is authorized to emit events matching the pattern `gts.x.core.audit.event.v1~x.core.audit.event.v1~abc.app.*` or a broader pattern like `gts.x.core.audit.event.v1~x.core.audit.event.v1~abc.app.*`.
+
+4. **Routing & Auditing**: Use the chain to route events to appropriate handlers or storage if needed.
+
 
 #### 3.2 Minor Version Compatibility
 
@@ -300,9 +354,7 @@ Example JSON instance implementing the derived schema — the `gtsId` shows the 
 MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUST maintain backward compatibility:
 
 **Allowed changes (backward compatible):**
-- Adding new optional properties
-- Relaxing constraints (e.g., making a field less restrictive)
-- Adding new enum values (with caution)
+- Adding new optional properties with default value
 - Clarifying documentation or examples
 
 **Prohibited changes (breaking):**
@@ -311,6 +363,8 @@ MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUS
 - Changing property types incompatibly
 - Tightening constraints on existing fields
 - Removing enum values
+- Adding new enum values (prohibited to catch problems with if/else/switch and version downcast, instead define enums as gts intances of a base enum type)
+- Relaxing constraints (e.g., v1.0 has field with max length 128, in v1.1 length changed to 256, v1.1 -> v1.0 cast would need to cut off some data)
 
 **Chain Compatibility:**
 - In a chain `gts.A~B~C`, type `B` MUST be compatible with `A`, and type `C` MUST be compatible with `B`
@@ -360,7 +414,7 @@ Non-goals reminder: GTS is not an eventing framework, transport, or workflow. It
 
 #### 7.1 Single-segment regex (type or instance)
 
-Single-line variant:
+Single-chain variant:
 
 ```regex
 ^gts\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?~?$
@@ -746,7 +800,7 @@ def gts_uuid_full(gts_id: str) -> uuid.UUID:
 
 **Examples:**
 - `gts.x.core.events.event.v1.0` - Match all instances of this type (prefix match)
-- `gts.x.core.events.event.v1.0[ topic_id="gts.x.core.events.topic.v1.0" ]` - Match events with specific topic_id
+- `gts.x.core.events.event.v1.0[ topic_id="gts.x.core.events.topic.v1.0~x.core.idp._.contacts.v1.0" ]` - Match events with specific `contacts` topic_id
 - `gts.x.core.events.event.v1[ status="active" priority="high" ]` - Multiple attribute filters
 
 **Matching rules:**
@@ -897,17 +951,35 @@ def wildcard_match(pattern: str, candidate: str) -> bool:
 
 ### 10. JSON and JSON Schema Conventions
 
-It is advisable to include instance GTS identifiers in a top-level field, such as `gtsId`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service. Example:
+It is advisable to include instance GTS identifiers in a top-level field, such as `gtsId`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
+
+**Example #1**: **instance definition** of an object instance (event topic) that has a `gtsId` field that encodes the object type (`gts.x.core.events.topic.v1~`) and identifies the object itself (`x.core.idp.events.v1`). In the example below it makes no sense to add additional `id` field because the `gtsId` is already unique and there are no any other event topics with given id in the system:
 
 ```json
 {
-  "gtsId": "gts.x.core.events.event.v1~gts.x.core.events.event.v1~gts.vendorA.app._.custom_event.v1.3",
-  "topic_id": "gts.x.core.events.topic.v1.0",
-  "payload": { "id": "123", "value": 42 }
+  "gtsId": "gts.x.core.events.topic.v1~x.core.idp.events.v1",
+  "description": "User-related events (creation, profile changes, etc.)",
+  "retention": "P30D",
+  "ordering": "by-partition-key",
 }
 ```
 
-Schemas SHOULD include `$id` equal to the type identifier (ending with `~`). Example schema `$id`:
+**Example #2**: **instance definition** of an object that has a `gtsId` field that encodes the object type, but also it's own integer identifier of the object:
+
+```json
+[{
+    "gtsId": "gts.x.core.events.event.v1~x.core.idp.events.v1~",
+    "id": "123",
+    "payload": { "foo": "123", "bar": 42 }
+},
+{
+    "gtsId": "gts.x.core.events.event.v1~x.core.idp.events.v1~",
+    "id": "125",
+    "payload": { "foo": "xyz", "bar": 123 }
+}]
+```
+
+**Example #3**: **schema definition** of an event type with the `$id` field equal to the type identifier (ending with `~`):
 
 ```json
 {
@@ -916,7 +988,7 @@ Schemas SHOULD include `$id` equal to the type identifier (ending with `~`). Exa
   "type": "object",
   "properties": {
     "gtsId": { "type": "string" },
-    "topic_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
     "payload": { "type": "object" }
   },
   "required": ["gtsId", "payload"]
