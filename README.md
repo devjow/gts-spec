@@ -45,13 +45,40 @@ This document defines GTS — a simple, human-readable, globally unique identifi
 
 ### 1. Motivation
 
-- There is a practical need to identify both data type schemas and data instances globally in a unique, human-readable way.
-- Such identifiers should support versioning, inheritance/extension, validation, and coarse-grained access control.
-- JSON and JSON Schema are the first-class target formats in this specification, however it is compatible with RAML, OpenAPI, and practically any other data type modelling specifications as GTS identifiers are just strings
+The proliferation of distributed systems, microservices, and event-driven architectures has created a significant challenge in maintaining **data integrity**, **system interoperability**, and **type governance** across organizational boundaries and technology stacks.
+
+Existing identification methods—such as opaque UUIDs, simple URLs, or proprietary naming conventions—fail to address the full spectrum of modern data management requirements. The **Global Type System (GTS)** is designed to solve these systemic issues by providing a simple, structured, and self-describing mechanism for identifying and referencing data types (schemas) and data instances (objects).
+
+The primary value of GTS is to provide a single, universal identifier that is immediately useful for:
+
+#### 1.1 Unifying Data Governance and Interoperability
+
+**Human- and Machine-Readable**: GTS identifiers are semantically meaningful, incorporating vendor, package, namespace, and version information directly into the ID. This makes them instantly comprehensible to developers, architects, and automated systems for logging, tracing, and debugging.
+
+**Vendor and Domain Agnostic**: By supporting explicit vendor registration, GTS facilitates safe, cross-vendor data exchange (e.g., in event buses or plugin systems) while preventing naming collisions and ensuring the origin of a definition is clear.
+
+#### 1.2 Enforcing Type Safety and Extensibility
+
+**Explicit Schema/Instance Distinction**: The GTS naming format clearly separates a type definition (schema) from a concrete data instance, enabling unambiguous schema resolution and validation.
+
+**Inheritance and Conformance Lineage**: The chained identifier system provides a robust, first-class mechanism for expressing type derivation and instance conformance. This is critical for ecosystems where third-parties must safely extend core types while guaranteeing compatibility with the base schema.
+
+**Built-in Version Compatibility**: By adopting a constrained Semantic Versioning model, GTS inherently supports automated compatibility checking across minor versions. This simplifies data casting (upcast/downcast), allowing consumers to safely process data from newer schema versions without breaking.
+
+#### 1.3 Simplifying Policy and Tooling
+
+**Granular Access Control**: The structured nature of the identifier enables the creation of coarse-grained access control policies using wildcard matching (e.g., granting a service permission to process all events from a specific vendor/package: gts.myvendor.accounting.*).
+
+**Deterministic Opaque IDs**: GTS supports the deterministic derivation of UUIDs (v5), providing a stable, fixed-length key for database indexing and external system APIs where human-readability is not required, while maintaining a clear, auditable link back to the source type.
+
+**Specification-First**: As a language- and format-agnostic specification (though prioritizing JSON/JSON Schema), GTS provides a stable foundation upon which robust, interchangeable validation and parsing tools can be built across any ecosystem.
+
 
 ### 2. Identifier Format
 
 GTS identifiers name either a schema (type) or an instance (object). A single GTS identifier may also chain multiple identifiers to express inheritance/compatibility and an instance’s conformance lineage.
+
+The GTS identifier is a string with total length of 1024 characters maximum.
 
 #### 2.1 Canonical form
 
@@ -68,12 +95,12 @@ The `<package>` notation defines a module, plugin, or application provided by th
 
 The `<namespace>` specifies a category of GTS definitions within the package, and finally, the `<type>` defines the specific object type.
 
-Use `_` as a placeholder when a slot is not applicable:
+Use `_` as a placeholder when the namespace is not applicable:
 
 - `gts.x.idp.users._.user.v1.0~`
 - `gts.x.mq.messages._.contact_created.v1`
 
-Segments must be lowercase ASCII letters, digits, and underscores; they must start with a letter or underscore: `[a-z_][a-z0-9_]*`.
+Segments must be lowercase ASCII letters, digits, and underscores; they must start with a letter or underscore: `[a-z_][a-z0-9_]*`. The single underscore `_` is reserved as a placeholder and may only be used for the `<namespace>` segment.
 
 Versioning uses semantic versioning constrained to major and optional minor: `v<MAJOR>[.<MINOR>]` where `<MAJOR>` and `<MINOR>` are non-negative integers, for example:
 - `gts.x.core.events.event.v1~` - defines a base event type in the system
@@ -85,7 +112,7 @@ Versioning uses semantic versioning constrained to major and optional minor: `v<
 Multiple GTS identifiers can be chained with `~` to express derivation and conformance. The chain follows **left-to-right inheritance** semantics:
 
 - Pattern: `gts.<gtx1>~<gtx2>~<gtx3>`
-- Where **GTX** (Global Type Extension) stands for a single type segment:
+- Where **GTX** (Global Type Extension) stands for a single type segment: <vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
   - `<gtx1>` is a **base type** (schema ID ending with `~`)
   - `<gtx2>` is a **derived/refined type** (schema ID ending with `~`) that extends `<gtx1>` with additional constraints or implementation-specific details. It MUST be compatible with `<gtx1>`.
   - `<gtx3>` is an **instance identifier** (no trailing `~`) that conforms to `<gtx2>`. By transitivity, it also conforms to `<gtx1>`.
@@ -154,7 +181,7 @@ non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 2. **Chain interpretation**: In a chained identifier `gts.<gtx1>~<gtx2>~<gtx3>`, each `~` acts as a separator. All segments before the final segment MUST be types (conceptually ending with `~`). The final segment determines whether the entire identifier is a type or instance.
 
-3. **Placeholder rule**: Use `_` (underscore) as a segment value when a component (vendor, package, namespace, or type) is not applicable.
+3. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It's recommended to use placeholder only for the `<namespace>` segment.
 
 4. **Normalization**: GTS identifiers are case-sensitive and must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
 
@@ -256,7 +283,7 @@ Example JSON instance implementing the derived schema — the `gtsId` shows the 
 ```json
 {
   "gtsId": "gts.x.core.events.event.v1~abc.app._.custom_event.v1~abc.app._.custom_event.v1.2",
-  "topic_id": "gts.x.core.events.topic.v1.0",
+  "topic_id": "gts.x.core.events.topic.v1.0~x.core._.custom_topic.v1",
   "payload": {
     "id": "evt-123",
     "amount": 99.95,
