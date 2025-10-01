@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/gts.x.core.events.topic.v1.0~.schema.json",
-  "id": "gts.x.core.events.topic.v1.0~x.core.idp.contacts.v1.0~",
+  "id": "gts.x.core.events.topic.v1.0~x.core.idp.contacts.v1.0",
   "name": "users",
   "description": "User-related events (creation, profile changes, etc.)",
   "retention": "P30D",
