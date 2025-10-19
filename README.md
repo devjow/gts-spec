@@ -4,6 +4,13 @@
 
 This document defines GTS — a simple, human-readable, globally unique identifier and referencing system for data type definitions (e.g., JSON Schemas) and data instances (e.g., JSON objects). It is specification-first, language-agnostic, and intentionally minimal, with primary focus on JSON and JSON Schema.
 
+The GTS identifiers are strings in a format like:
+
+```
+gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]
+```
+
+They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI, or other identifiers. See detaled description and examples below.
 
 ### Table of Contents
 
@@ -48,7 +55,7 @@ This document defines GTS — a simple, human-readable, globally unique identifi
 
 The proliferation of distributed systems, microservices, and event-driven architectures has created a significant challenge in maintaining **data integrity**, **system interoperability**, and **type governance** across organizational boundaries and technology stacks.
 
-Existing identification methods—such as opaque UUIDs, simple URLs, or proprietary naming conventions—fail to address the full spectrum of modern data management requirements. The **Global Type System (GTS)** is designed to solve these systemic issues by providing a simple, structured, and self-describing mechanism for identifying and referencing data types (schemas) and data instances (objects).
+Existing identification methods—such as opaque UUIDs, simple URLs (e.g. JSON Schema URLs), or proprietary naming conventions—fail to address the full spectrum of modern data management requirements. The **Global Type System (GTS)** is designed to solve these systemic issues by providing a simple, structured, and self-describing mechanism for identifying and referencing data types (schemas) and data instances (objects).
 
 The primary value of GTS is to provide a single, universal identifier that is immediately useful for:
 
