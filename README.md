@@ -1,4 +1,4 @@
-| GTS early draft, version 0.1
+> **VERSION**: GTS early draft, version 0.2
 
 ## Global Type System (GTS) Specification
 
@@ -21,9 +21,12 @@ They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI,
   - [2.2 Chained identifiers](#22-chained-identifiers)
   - [2.3 Formal Grammar (EBNF)](#23-formal-grammar-ebnf)
 - [3. Semantics and Capabilities](#3-semantics-and-capabilities)
-  - [3.1 JSON and JSON Schema examples](#31-json-and-json-schema-examples)
-  - [3.2 Minor Version compatibility](#32-minor-version-compatibility)
-  - [3.3 Access control with wildcards](#33-access-control-with-wildcards)
+  - [3.1 Core Operations](#31-core-operations)
+  - [3.2 Minor Version Compatibility](#32-minor-version-compatibility)
+  - [3.3 Query Language](#33-query-language)
+  - [3.4 Attribute selector](#34-attribute-selector)
+  - [3.5 Access control with wildcards](#35-access-control-with-wildcards)
+  - [3.6 Access Control Implementation Notes](#36-access-control-implementation-notes)
 - [4. Typical Uses](#4-typical-uses)
 - [5. Implementation-defined and Non-goals](#5-implementation-defined-and-non-goals)
 - [6. Comparison with other identifiers](#6-comparison-with-other-identifiers)
@@ -46,9 +49,10 @@ They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI,
 
 ### Document Version
 
-| Document Version | Status                              |
-|------------------|-------------------------------------|
-| 0.1              | Initial Draft, Request for Comments |
+| Document Version | Status                                                                                       |
+|------------------|----------------------------------------------------------------------------------------------|
+| 0.1              | Initial Draft, Request for Comments                                                          |
+| 0.2              | Semantics and Capabilities refined - access control notes, query language, attribut selector |
 
 
 ### 1. Motivation
@@ -139,14 +143,16 @@ Multiple GTS identifiers can be chained with `~` to express derivation and confo
 
 **Examples with explanations:**
 
-- `gts.x.core.events.event.v1~`
-  → Base type only (standalone schema)
+``` bash
+# Base type only (standalone schema)
+gts.x.core.events.event.v1~
 
-- `gts.x.core.events.event.v1~ven.app._.custom_event.v1~`
-  → Type `ven.app._.custom_event.v1` derives from base type `gts.x.core.events.event.v1`. Both are schemas (trailing `~`).
+# Type `ven.app._.custom_event.v1` derives from base type `gts.x.core.events.event.v1`. Both are schemas (trailing `~`).
+gts.x.core.events.event.v1~ven.app._.custom_event.v1~
 
-- `gts.x.core.events.topic.v1~ven.app._.custom_event_topic.v1.2`
-  → Instance `ven.app._.custom_event_topic.v1.2` (no trailing `~`) conforms to type `gts.x.core.events.topic.v1`. The identifier shows the full inheritance chain.
+# Instance `ven.app._.custom_event_topic.v1.2` (no trailing `~`) conforms to type `gts.x.core.events.topic.v1`. The identifier shows the full inheritance chain.
+gts.x.core.events.topic.v1~ven.app._.custom_event_topic.v1.2
+```
 
 #### 2.3 Formal Grammar (EBNF)
 
@@ -202,7 +208,7 @@ non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 GTS identifiers enable the following operations and use cases:
 
-**Core Operations:**
+#### 3.1 Core Operations
 
 1. **Global Identification**: Uniquely identify data types (JSON Schemas) and data instances (JSON objects) in a human-readable format across systems and vendors.
 
@@ -217,6 +223,7 @@ GTS identifiers enable the following operations and use cases:
    - Exact identifier matching
    - Wildcard patterns (e.g., `gts.vendor.package.*`)
    - Chain-based isolation (e.g., restrict access to specific vendor's extensions)
+   - See also ABAC use-cases in sections 3.2 and 3.3 below
 
 5. **Extensible Type Systems**: Enable platforms where:
    - Base system types are defined by a core vendor
@@ -224,7 +231,125 @@ GTS identifiers enable the following operations and use cases:
    - All validation guarantees are preserved through the inheritance chain
    - Type evolution is tracked explicitly through versioning
 
-#### 3.1 JSON and JSON Schema examples
+#### 3.2 Minor Version Compatibility
+
+**Semantic Versioning Rules for GTS:**
+
+MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUST maintain backward compatibility:
+
+**Allowed changes (backward compatible):**
+- Adding new optional properties with default value
+- Clarifying documentation or examples
+
+**Prohibited changes (breaking):**
+- Removing required properties
+- Adding new required properties
+- Changing property types incompatibly
+- Tightening constraints on existing fields
+- Removing enum values
+- Adding new enum values (prohibited to catch problems with if/else/switch and version downcast, instead define enums as gts intances of a base enum type)
+- Relaxing constraints (e.g., v1.0 has field with max length 128, in v1.1 length changed to 256, v1.1 -> v1.0 cast would need to cut off some data)
+
+**Chain Compatibility:**
+- In a chain `gts.A~B~C`, type `B` MUST be compatible with `A`, and type `C` MUST be compatible with `B`
+- Compatibility is verified left-to-right: each type must accept all valid instances of its predecessor
+- Use MAJOR version increment for any breaking change
+
+**Practical implication:** A consumer expecting v1.2 can safely process objects validated against v1.3 of the same schema.
+
+#### 3.3 Query Language
+
+A compact predicate syntax, inspired by XPath/JSONPath, lets you constrain results by attributes. Attach a square-bracket clause to a GTS identifier with comma-separated name="value" pairs. Example form: <gts>[ attr="value", other="value2" ].
+
+Predicates can reference plain literals or GTS-formatted values, e.g.:
+
+```bash
+# filter all events that are published to the topic "some_topic" by the vendor "z"
+gts.x.core.events.event.v1.0[type_id="gts.x.core.events.topic.v1~z.app._.some_topic.v1"]
+# filter all user settings that were defined for users if type is z-vendor app_admin
+cti.x.core.acm.user_setting.v1[user_type="gts.x.core.acm.user.v1~z.app._.app_admin.v1"]
+```
+
+Multiple parameters are combined with logical AND to further restrict the result set:
+
+```bash
+gtx.x.z.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d" ]
+```
+
+#### 3.4 Attribute selector
+
+GTS includes a lightweight attribute accessor, akin to JSONPath dot notation, to read a single value from a bound instance. Append `@` to the identifier and provide a property path, e.g., <gts>@<root>.<nested>.
+
+The selector always resolves from the instance root and returns one attribute per query. For example:
+
+```bash
+# refer to the value of the message identifier
+gti.x.y.z.message.v1@id
+```
+
+Nested attributes also can be accessed within the instance's structure. For example:
+```bash
+# refer to the value of the 'bar' item property from the 'foo' field
+cti.a.p.message.v1.0@foo.bar
+```
+
+#### 3.5 Access control with wildcards
+
+Wildcards (`*`) enable policy scopes that cover families of identifiers (e.g., entire vendor/package trees) rather than single, exact instance or schema IDs. This is useful in RBAC/ABAC style engines and relationship-based systems (e.g., Zanzibar-like models) where permissions are expressed over sets of resources.
+
+```bash
+# grants access to all the audit events category defined by the vendor 'xyz'
+gts.x.core.events.event.v1~x.core._.audit_event.v1~xyz.*
+# grants access to all the menu items referring screens of the vendor 'abc'
+gts.x.ui.left_menu.menu_item.v1[screen_type="gts.x.ui.core_ui.screens.v1~abc.*"]
+```
+
+#### 3.6 Access Control Implementation Notes
+
+> **Scope disclaimer:** GTS-based access control implementation is outside the scope of this specification and will vary across systems. GTS provides the syntax to express authorization rules; however, different policy engines may apply different evaluation strategies or may not support attribute-based or wildcard-based access control at all.
+
+The following guidance is provided for implementers building GTS-aware policy engines:
+
+**Policy management domain model:**
+- **Principal**: Users, services, or groups (outside the scope of GTS) mapped to roles.
+- **Resource**: GTS identifiers or patterns (with wildcards and, optionally, attribute predicates) that denote types or instances.
+- **Action**: Verbs such as `read`, `write`, `emit`, `subscribe`, `admin` defined by the platform.
+
+**Example policy shapes:**
+- **RBAC-style allow**: Role `xyz_auditor` → allow `read` on `gts.x.core.events.event.v1~x.core._.audit_event.v1~xyz.*`
+- **ABAC refinement**: Attach predicate filters like `[screen_type="..."]` to restrict by referenced type.
+- **Derived-type envelopes**: Grant access at the base type (e.g., `gts.x.core.events.event.v1~`) so that derived schemas remain covered if they conform by chain rules.
+
+**Matching semantics options:**
+- **Segment-wise prefixing**: The `*` wildcard can match any valid content of the target segment and its suffix hierarchy, enabling vendor/package/namespace/type grouping.
+- **Chain awareness**: Patterns may target the base segment, derived segments, or instance tail; evaluation should consider the entire chain when present.
+- **Attribute filters**: Optional `[name="value", ...]` predicates further constrain matches (e.g., only instances referencing a specific `screen_type`).
+
+**Evaluation guidelines:**
+- **Deny-over-allow (recommended)**: If your engine supports explicit denies, process them before allows to prevent privilege escalation.
+- **Most-specific wins**: Prefer the most specific matching rule (longest concrete prefix, fewest wildcards, most predicates).
+- **Version safety**: Consider pinning MAJOR and, optionally, MINOR versions in sensitive paths; otherwise rely on minor-version compatibility guarantees (see section 3.2).
+- **Tenant isolation**: Use vendor/package scoping to isolate tenants and applications; avoid cross-vendor wildcards unless explicitly required.
+
+**Performance guidelines:**
+- **Indexing**: Normalize and index rules by canonical GTS prefix to avoid expensive pattern-matching scans.
+- **Caching**: Cache resolution results for common patterns and predicate evaluations; invalidate caches on schema or policy changes.
+- **Auditing**: Log the concrete identifier and the matched rule (pattern + predicates) for traceability and compliance.
+
+
+### 4. Typical Uses
+
+#### 4.1 Use-cases
+
+- API custom payload schema definitions
+- Event schema definitions
+- Configuration settings schema definitions
+- Database schema definitions
+- Data warehouse object schema definitions
+
+See some definitions in the [examples folder](./examples/)
+
+#### 4.2 JSON and JSON Schema examples
 
 **Practical Scenario:**
 
@@ -356,48 +481,7 @@ When the event manager receives the event it processes it as follows:
 
 4. **Routing & Auditing**: Use the chain to route events to appropriate handlers or storage if needed.
 
-| NOTE: you can use the (GTS Viewer)[https://github.com/globaltypesystem/gts-viewer] for visualisation of the entities relationship and validation
-
-#### 3.2 Minor Version Compatibility
-
-**Semantic Versioning Rules for GTS:**
-
-MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUST maintain backward compatibility:
-
-**Allowed changes (backward compatible):**
-- Adding new optional properties with default value
-- Clarifying documentation or examples
-
-**Prohibited changes (breaking):**
-- Removing required properties
-- Adding new required properties
-- Changing property types incompatibly
-- Tightening constraints on existing fields
-- Removing enum values
-- Adding new enum values (prohibited to catch problems with if/else/switch and version downcast, instead define enums as gts intances of a base enum type)
-- Relaxing constraints (e.g., v1.0 has field with max length 128, in v1.1 length changed to 256, v1.1 -> v1.0 cast would need to cut off some data)
-
-**Chain Compatibility:**
-- In a chain `gts.A~B~C`, type `B` MUST be compatible with `A`, and type `C` MUST be compatible with `B`
-- Compatibility is verified left-to-right: each type must accept all valid instances of its predecessor
-- Use MAJOR version increment for any breaking change
-
-**Practical implication:** A consumer expecting v1.2 can safely process objects validated against v1.3 of the same schema.
-
-#### 3.3 Access control with wildcards
-
-See section 9 (Collecting Identifiers with Wildcards) for the wildcard pattern semantics used to collect or authorize groups of identifiers.
-
-
-### 4. Typical Uses
-
-- API custom payload schema definitions
-- Event schema definitions
-- Configuration settings schema definitions
-- Database schema definitions
-- Data warehouse object schema definitions
-
-See some definitions in the [examples folder](./examples/)
+> **Note**: use the [GTS Kit](https://github.com/globaltypesystem/gts-kit) for visualisation of the entities relationship and validation
 
 
 ### 5. Implementation-defined and Non-goals
@@ -406,11 +490,11 @@ This specification intentionally does not enforce several operational or governa
 
 1. Whether a defined type is exported and available for cross-vendor use via APIs or an event bus.
 2. Whether a given JSON/JSON Schema definition is mutable or immutable (e.g., handling an incompatible change without changing the minor or major version).
-3. How to implement access checks based on the GTS query mini-language.
+3. How to implement access policies and access checks based on the GTS query and attribute access languages.
 4. When to introduce a new minor version versus a new major version.
 5. GTS identifiers renaming and aliasing
 
-Non-goals reminder: GTS is not an eventing framework, transport, or workflow. It standardizes identifiers and basic validation/casting semantics around JSON and JSON Schema.
+> **Non-goals reminder**: GTS is not an eventing framework, transport, or workflow. It standardizes identifiers and basic validation/casting semantics around JSON and JSON Schema.
 
 
 ### 6. Comparison with other identifiers
