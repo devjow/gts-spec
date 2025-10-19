@@ -1,7 +1,16 @@
+| GTS early draft, version 0.1
+
 ## Global Type System (GTS) Specification
 
 This document defines GTS — a simple, human-readable, globally unique identifier and referencing system for data type definitions (e.g., JSON Schemas) and data instances (e.g., JSON objects). It is specification-first, language-agnostic, and intentionally minimal, with primary focus on JSON and JSON Schema.
 
+The GTS identifiers are strings in a format like:
+
+```
+gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]
+```
+
+They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI, or other identifiers. See detaled description and examples below.
 
 ### Table of Contents
 
@@ -42,12 +51,11 @@ This document defines GTS — a simple, human-readable, globally unique identifi
 | 0.1              | Initial Draft, Request for Comments |
 
 
-
 ### 1. Motivation
 
 The proliferation of distributed systems, microservices, and event-driven architectures has created a significant challenge in maintaining **data integrity**, **system interoperability**, and **type governance** across organizational boundaries and technology stacks.
 
-Existing identification methods—such as opaque UUIDs, simple URLs, or proprietary naming conventions—fail to address the full spectrum of modern data management requirements. The **Global Type System (GTS)** is designed to solve these systemic issues by providing a simple, structured, and self-describing mechanism for identifying and referencing data types (schemas) and data instances (objects).
+Existing identification methods—such as opaque UUIDs, simple URLs (e.g. JSON Schema URLs), or proprietary naming conventions—fail to address the full spectrum of modern data management requirements. The **Global Type System (GTS)** is designed to solve these systemic issues by providing a simple, structured, and self-describing mechanism for identifying and referencing data types (schemas) and data instances (objects).
 
 The primary value of GTS is to provide a single, universal identifier that is immediately useful for:
 
@@ -95,17 +103,18 @@ The `<package>` notation defines a module, plugin, or application provided by th
 
 The `<namespace>` specifies a category of GTS definitions within the package, and finally, the `<type>` defines the specific object type.
 
-Use `_` as a placeholder when the namespace is not applicable:
-
-- `gts.x.idp.users._.user.v1.0~`
-- `gts.x.mq.messages._.contact_created.v1`
-
 Segments must be lowercase ASCII letters, digits, and underscores; they must start with a letter or underscore: `[a-z_][a-z0-9_]*`. The single underscore `_` is reserved as a placeholder and may only be used for the `<namespace>` segment.
 
 Versioning uses semantic versioning constrained to major and optional minor: `v<MAJOR>[.<MINOR>]` where `<MAJOR>` and `<MINOR>` are non-negative integers, for example:
 - `gts.x.core.events.event.v1~` - defines a base event type in the system
 - `gts.x.core.events.event.v1.2~` - defines a specific edition v1.2 of the base event type
 
+**Examples** - The GTS identifier can be used for instances or types identifiers:
+```bash
+gts.x.idp.users.user.v1.0~ # defines ID of a schema of the user objects provided by vendor 'x' in scope of the package 'idp'
+gts.x.mq.events.topic.v1~ # defines ID of a schema of the MQ topic stream provided by vendor 'x' in scope of the 'mq' (message queue) package
+
+```
 
 #### 2.2 Chained identifiers
 
@@ -126,6 +135,7 @@ Multiple GTS identifiers can be chained with `~` to express derivation and confo
    - No trailing `~` → the whole identifier represents an **instance/object**.
 3. The `gts.` prefix appears **only once** at the very beginning of the identifier string.
 4. Segments after the first are considered relative identifiers and do not repeat the `gts.` prefix. (e.g., `gts.x.some.base.type.v1~vendor.app.some.derived.v1~`).
+5. Use `_` as a placeholder when the namespace is not applicable
 
 **Examples with explanations:**
 
@@ -346,6 +356,7 @@ When the event manager receives the event it processes it as follows:
 
 4. **Routing & Auditing**: Use the chain to route events to appropriate handlers or storage if needed.
 
+| NOTE: you can use the (GTS Viewer)[https://github.com/globaltypesystem/gts-viewer] for visualisation of the entities relationship and validation
 
 #### 3.2 Minor Version Compatibility
 
