@@ -1,6 +1,6 @@
 > **VERSION**: GTS early draft, version 0.2
 
-## Global Type System (GTS) Specification
+# Global Type System (GTS) Specification
 
 This document defines GTS — a simple, human-readable, globally unique identifier and referencing system for data type definitions (e.g., JSON Schemas) and data instances (e.g., JSON objects). It is specification-first, language-agnostic, and intentionally minimal, with primary focus on JSON and JSON Schema.
 
@@ -10,9 +10,29 @@ The GTS identifiers are strings in a format like:
 gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]
 ```
 
-They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI, or other identifiers. See detaled description and examples below.
+They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI, or other notations for identification of various objects and schema definitions like:
 
-### Table of Contents
+- API data types and typed payloads (e.g. custom resource attributes)
+- RPC contracts schemas
+- API errors, headers and various semantics definitions
+- Event catalogs, messages and stream topics
+- Workflow categories and instances
+- FaaS functions or actions contract definitions
+- Policy objects (RBAC/ABAC/IAM)
+- UI elements, schemas and forms
+- Observability payloads (e.g. log formats)
+- IoT/Edge telemetry data (e.g. device message formats)
+- Warehouse/lake schemas
+- Enumerations and references (e.g. enum id + description)
+- ML/AI artifacts (e.g. model metadata or MCP tools declarations)
+- Configuration-as-data templates and config instances
+- Testing artifacts (e.g. golden records and fixtures)
+- Database schemas
+- Compliance and audit objects
+
+See detailed description and examples below.
+
+## Table of Contents
 
 - [Global Type System (GTS) Specification](#global-type-system-gts-specification)
 - [1. Motivation](#1-motivation)
@@ -47,15 +67,15 @@ They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI,
 - [12. Registered Vendors](#12-registered-vendors)
 
 
-### Document Version
+## Document Version
 
-| Document Version | Status                                                                                       |
-|------------------|----------------------------------------------------------------------------------------------|
-| 0.1              | Initial Draft, Request for Comments                                                          |
-| 0.2              | Semantics and Capabilities refined - access control notes, query language, attribut selector |
+| Document Version | Status                                                                                        |
+|------------------|-----------------------------------------------------------------------------------------------|
+| 0.1              | Initial Draft, Request for Comments                                                           |
+| 0.2              | Semantics and Capabilities refined - access control notes, query language, attribute selector |
 
 
-### 1. Motivation
+## 1. Motivation
 
 The proliferation of distributed systems, microservices, and event-driven architectures has created a significant challenge in maintaining **data integrity**, **system interoperability**, and **type governance** across organizational boundaries and technology stacks.
 
@@ -63,7 +83,7 @@ Existing identification methods—such as opaque UUIDs, simple URLs (e.g. JSON S
 
 The primary value of GTS is to provide a single, universal identifier that is immediately useful for:
 
-#### 1.1 Unifying Data Governance and Interoperability
+### 1.1 Unifying Data Governance and Interoperability
 
 **Human- and Machine-Readable**: GTS identifiers are semantically meaningful, incorporating vendor, package, namespace, and version information directly into the ID. This makes them instantly comprehensible to developers, architects, and automated systems for logging, tracing, and debugging.
 
@@ -86,7 +106,7 @@ The primary value of GTS is to provide a single, universal identifier that is im
 **Specification-First**: As a language- and format-agnostic specification (though prioritizing JSON/JSON Schema), GTS provides a stable foundation upon which robust, interchangeable validation and parsing tools can be built across any ecosystem.
 
 
-### 2. Identifier Format
+## 2. Identifier Format
 
 GTS identifiers name either a schema (type) or an instance (object). A single GTS identifier may also chain multiple identifiers to express inheritance/compatibility and an instance’s conformance lineage.
 
@@ -113,14 +133,14 @@ Versioning uses semantic versioning constrained to major and optional minor: `v<
 - `gts.x.core.events.event.v1~` - defines a base event type in the system
 - `gts.x.core.events.event.v1.2~` - defines a specific edition v1.2 of the base event type
 
-**Examples** - The GTS identifier can be used for instances or types identifiers:
+**Examples** - The GTS identifier can be used for instance or type identifiers:
 ```bash
 gts.x.idp.users.user.v1.0~ # defines ID of a schema of the user objects provided by vendor 'x' in scope of the package 'idp'
 gts.x.mq.events.topic.v1~ # defines ID of a schema of the MQ topic stream provided by vendor 'x' in scope of the 'mq' (message queue) package
 
 ```
 
-#### 2.2 Chained identifiers
+### 2.2 Chained identifiers
 
 Multiple GTS identifiers can be chained with `~` to express derivation and conformance. The chain follows **left-to-right inheritance** semantics:
 
@@ -154,7 +174,7 @@ gts.x.core.events.event.v1~ven.app._.custom_event.v1~
 gts.x.core.events.topic.v1~ven.app._.custom_event_topic.v1.2
 ```
 
-#### 2.3 Formal Grammar (EBNF)
+### 2.3 Formal Grammar (EBNF)
 
 The complete GTS identifier syntax in Extended Backus-Naur Form (EBNF):
 
@@ -197,18 +217,18 @@ non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 2. **Chain interpretation**: In a chained identifier `gts.<gtx1>~<gtx2>~<gtx3>`, each `~` acts as a separator. All segments before the final segment MUST be types (conceptually ending with `~`). The final segment determines whether the entire identifier is a type or instance.
 
-3. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It's recommended to use placeholder only for the `<namespace>` segment.
+3. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It is recommended to use the placeholder only for the `<namespace>` segment.
 
-4. **Normalization**: GTS identifiers are must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
+4. **Normalization**: GTS identifiers must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
 
 5. **Reserved prefix**: The `gts.` prefix is mandatory and reserved. Future versions may introduce alternative prefixes but will maintain backward compatibility.
 
 
-### 3. Semantics and Capabilities
+## 3. Semantics and Capabilities
 
 GTS identifiers enable the following operations and use cases:
 
-#### 3.1 Core Operations
+### 3.1 Core Operations
 
 1. **Global Identification**: Uniquely identify data types (JSON Schemas) and data instances (JSON objects) in a human-readable format across systems and vendors.
 
@@ -231,7 +251,7 @@ GTS identifiers enable the following operations and use cases:
    - All validation guarantees are preserved through the inheritance chain
    - Type evolution is tracked explicitly through versioning
 
-#### 3.2 Minor Version Compatibility
+### 3.2 Minor Version Compatibility
 
 **Semantic Versioning Rules for GTS:**
 
@@ -247,7 +267,7 @@ MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUS
 - Changing property types incompatibly
 - Tightening constraints on existing fields
 - Removing enum values
-- Adding new enum values (prohibited to catch problems with if/else/switch and version downcast, instead define enums as gts intances of a base enum type)
+- Adding new enum values (prohibited to catch problems with if/else/switch and version downcast, instead define enums as gts instances of a base enum type)
 - Relaxing constraints (e.g., v1.0 has field with max length 128, in v1.1 length changed to 256, v1.1 -> v1.0 cast would need to cut off some data)
 
 **Chain Compatibility:**
@@ -257,7 +277,7 @@ MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUS
 
 **Practical implication:** A consumer expecting v1.2 can safely process objects validated against v1.3 of the same schema.
 
-#### 3.3 Query Language
+### 3.3 Query Language
 
 A compact predicate syntax, inspired by XPath/JSONPath, lets you constrain results by attributes. Attach a square-bracket clause to a GTS identifier with comma-separated name="value" pairs. Example form: <gts>[ attr="value", other="value2" ].
 
@@ -276,7 +296,7 @@ Multiple parameters are combined with logical AND to further restrict the result
 gtx.x.z.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d" ]
 ```
 
-#### 3.4 Attribute selector
+### 3.4 Attribute selector
 
 GTS includes a lightweight attribute accessor, akin to JSONPath dot notation, to read a single value from a bound instance. Append `@` to the identifier and provide a property path, e.g., <gts>@<root>.<nested>.
 
@@ -293,7 +313,7 @@ Nested attributes also can be accessed within the instance's structure. For exam
 cti.a.p.message.v1.0@foo.bar
 ```
 
-#### 3.5 Access control with wildcards
+### 3.5 Access control with wildcards
 
 Wildcards (`*`) enable policy scopes that cover families of identifiers (e.g., entire vendor/package trees) rather than single, exact instance or schema IDs. This is useful in RBAC/ABAC style engines and relationship-based systems (e.g., Zanzibar-like models) where permissions are expressed over sets of resources.
 
@@ -304,7 +324,7 @@ gts.x.core.events.event.v1~x.core._.audit_event.v1~xyz.*
 gts.x.ui.left_menu.menu_item.v1[screen_type="gts.x.ui.core_ui.screens.v1~abc.*"]
 ```
 
-#### 3.6 Access Control Implementation Notes
+### 3.6 Access Control Implementation Notes
 
 > **Scope disclaimer:** GTS-based access control implementation is outside the scope of this specification and will vary across systems. GTS provides the syntax to express authorization rules; however, different policy engines may apply different evaluation strategies or may not support attribute-based or wildcard-based access control at all.
 
@@ -337,9 +357,9 @@ The following guidance is provided for implementers building GTS-aware policy en
 - **Auditing**: Log the concrete identifier and the matched rule (pattern + predicates) for traceability and compliance.
 
 
-### 4. Typical Uses
+## 4. Typical Uses
 
-#### 4.1 Use-cases
+### 4.1 Use-cases
 
 - API custom payload schema definitions
 - Event schema definitions
@@ -481,10 +501,10 @@ When the event manager receives the event it processes it as follows:
 
 4. **Routing & Auditing**: Use the chain to route events to appropriate handlers or storage if needed.
 
-> **Note**: use the [GTS Kit](https://github.com/globaltypesystem/gts-kit) for visualisation of the entities relationship and validation
+> **Note**: use the [GTS Kit](https://github.com/globaltypesystem/gts-kit) for visualization of the entities relationship and validation
 
 
-### 5. Implementation-defined and Non-goals
+## 5. Implementation-defined and Non-goals
 
 This specification intentionally does not enforce several operational or governance choices. It is up to the implementation vendor to define policies and behavior for:
 
@@ -497,7 +517,7 @@ This specification intentionally does not enforce several operational or governa
 > **Non-goals reminder**: GTS is not an eventing framework, transport, or workflow. It standardizes identifiers and basic validation/casting semantics around JSON and JSON Schema.
 
 
-### 6. Comparison with other identifiers
+## 6. Comparison with other identifiers
 
 - JSONSchema $schema url: While JSONSchema provides a robust framework for defining the structure of JSON data, GTS extends this by offering clear vendor, package and namespace notation and chaining making it easier to track and validate data instances across different systems and versions.
 - UUID: Opaque and globally unique. GTS is meaningful to humans and machines; UUIDs can be derived from GTS deterministically when opaque IDs are required.
@@ -505,9 +525,9 @@ This specification intentionally does not enforce several operational or governa
 - Amazon ARN: Global and structured, but cloud-service-specific. GTS is vendor-neutral and domain-agnostic, focused on data schemas and instances.
 
 
-### 7. Parsing and Validation
+## 7. Parsing and Validation
 
-#### 7.1 Single-segment regex (type or instance)
+### 7.1 Single-segment regex (type or instance)
 
 Single-chain variant:
 
@@ -556,13 +576,13 @@ For chained identifiers, the pattern enforces that all segments except the last 
 - Validate that all segments except possibly the last are types
 
 
-### 8. Reference Operators (Python)
+## 8. Reference Operators (Python)
 
 The following reference implementations target Python. Other languages can mirror the semantics in dedicated repositories.
 
 > Requirements: `jsonschema>=4`, `uuid` from the standard library.
 
-#### 8.1 Normalize, validate, and parse
+### 8.1 Normalize, validate, and parse
 
 ```python
 import re
@@ -683,7 +703,7 @@ def split_chain(gts_id: str) -> List[Gtx]:
     return segments
 ```
 
-#### 8.2 Validate object against schema
+### 8.2 Validate object against schema
 
 **Validation algorithm:**
 
@@ -750,7 +770,7 @@ def validate_instance(obj: dict, gts_id: str, store: SchemaStore) -> None:
     js_validate(instance=obj, schema=schema)
 ```
 
-#### 8.3 Minor version casting (downcast/upcast)
+### 8.3 Minor version casting (downcast/upcast)
 
 **Casting between minor versions** allows transformation of objects between compatible schema versions.
 
@@ -810,7 +830,7 @@ def upcast(obj: dict, from_schema: dict, to_schema: dict) -> dict:
     return result
 ```
 
-#### 8.4 Type compatibility across minor versions
+### 8.4 Type compatibility across minor versions
 
 Basic check: required fields cannot be removed; properties should be a superset; types must not widen incompatibly.
 
@@ -838,7 +858,7 @@ def is_minor_compatible(old_schema: dict, new_schema: dict) -> bool:
     return True
 ```
 
-#### 8.5 Mapping GTS to UUIDs
+### 8.5 Mapping GTS to UUIDs
 
 **Use case:** Systems often need opaque, fixed-length identifiers for database keys, indexing, or external APIs while maintaining human-readable GTS identifiers for logs and debugging.
 
@@ -887,7 +907,7 @@ def gts_uuid_full(gts_id: str) -> uuid.UUID:
     return uuid.uuid5(FULL_NS, g.short())
 ```
 
-#### 8.6 GTS Query mini-language
+### 8.6 GTS Query mini-language
 
 **Purpose:** Enable filtering and querying object collections based on GTS identifiers and attributes.
 
@@ -933,7 +953,7 @@ def match_query(obj: dict, gts_field: str, expr: str) -> bool:
     return True
 ```
 
-#### 8.7 Attribute Selector (`@`)
+### 8.7 Attribute Selector (`@`)
 
 **Purpose:** Access a specific attribute value from a GTS-identified instance using a simple path. An identifier with an attribute selector cannot be used as a type or instance identifier; it is only for data retrieval.
 
@@ -984,7 +1004,7 @@ def resolve_path(obj: object, path: str) -> object:
 ```
 
 
-### 9. Collecting Identifiers with Wildcards
+## 9. Collecting Identifiers with Wildcards
 
 **Important:** An identifier containing a wildcard (`*`) is a **pattern for matching** and may not serve as a canonical identifier for a type or instance.
 
@@ -1044,11 +1064,11 @@ def wildcard_match(pattern: str, candidate: str) -> bool:
 ```
 
 
-### 10. JSON and JSON Schema Conventions
+## 10. JSON and JSON Schema Conventions
 
 It is advisable to include instance GTS identifiers in a top-level field, such as `gtsId`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
 
-**Example #1**: **instance definition** of an object instance (event topic) that has a `gtsId` field that encodes the object type (`gts.x.core.events.topic.v1~`) and identifies the object itself (`x.core.idp.events.v1`). In the example below it makes no sense to add additional `id` field because the `gtsId` is already unique and there are no any other event topics with given id in the system:
+**Example #1**: **instance definition** of an object instance (event topic) that has a `gtsId` field that encodes the object type (`gts.x.core.events.topic.v1~`) and identifies the object itself (`x.core.idp.events.v1`). In the example below it makes no sense to add an additional `id` field because the `gtsId` is already unique and there are no other event topics with the given id in the system:
 
 ```json
 {
@@ -1059,7 +1079,7 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 }
 ```
 
-**Example #2**: **instance definition** of an object that has a `gtsId` field that encodes the object type, but also it's own integer identifier of the object:
+**Example #2**: **instance definition** of an object that has a `gtsId` field that encodes the object type, but also its own integer identifier of the object:
 
 ```json
 [{
@@ -1091,14 +1111,14 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 ```
 
 
-### 11. Notes and Best Practices
+## 11. Notes and Best Practices
 
 - Prefer chains where the base system type is first, followed by vendor-specific refinements, and finally the instance.
 - Favor additive changes in MINOR versions. Use a new MAJOR for breaking changes.
 - Keep types small and cohesive; use `namespace` to group related types within a package.
 
 
-### 12. Registered Vendors
+## 12. Registered Vendors
 
 The GTS specification does not require vendors to publish their types publicly, but we encourage them to submit their vendor codes to prevent future conflicts.
 
