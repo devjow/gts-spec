@@ -1,11 +1,10 @@
 {
-  "$schema": "../schemas/gts.x.core.events.topic.v1.0~.schema.json",
-  "id": "gts.x.core.events.topic.v1.0~x.core.idp.contacts.v1.0",
+  "id": "gts.x.core.events.topic.v1~x.core.idp.contacts.v1",
   "name": "users",
   "description": "User-related events (creation, profile changes, etc.)",
   "retention": "P30D",
-  "ordering": "by-partition-key",
-  "partitions": 8,
+  "ordering": "global",
+  "partitions": 9,
   "partitionKeyPath": "/key",
   "dedup": {
     "strategy": "time-window",

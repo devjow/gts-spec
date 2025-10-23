@@ -1,9 +1,10 @@
 {
-  "$id": "gts.x.core.events.topic.v1.0~",
+  "$id": "gts.x.core.events.topic.v1~",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Event Topic (Stream)",
   "type": "object",
   "required": ["id", "name", "retention", "ordering"],
+  "description": "Event Topic (Stream) definition",
   "properties": {
     "$schema": {
       "description": "Link to the topic schema.",
@@ -11,8 +12,8 @@
     },
     "id": {
       "description": "Identifier for the topic/stream in GTS notation.",
-      "$ref": "./gts-reference.schema.json#/definitions/gtsId",
-      "pattern": "^gts.x.core.events.topic.v1.0~*"
+      "type": "string",
+      "x-gts-type": "./$id"
     },
     "name": { "type": "string", "minLength": 1 },
     "description": { "type": "string" },
