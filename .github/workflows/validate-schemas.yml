@@ -1,0 +1,46 @@
+name: Validate Schemas
+
+on:
+  push:
+    branches: [ main, examples/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install ajv-cli
+      run: npm install -g ajv-cli
+
+    - name: Validate schemas
+      run: |
+        echo "Validating all schema files..."
+        failed=0
+
+        for schema in $(find examples -name "*.schema.json"); do
+          echo "Validating $schema"
+          if ajv compile -s "$schema" --strict=false; then
+            echo "✓ $schema is valid"
+          else
+            echo "✗ $schema is invalid"
+            failed=1
+          fi
+          echo ""
+        done
+
+        if [ $failed -eq 1 ]; then
+          echo "Schema validation failed"
+          exit 1
+        else
+          echo "All schemas are valid"
+        fi
