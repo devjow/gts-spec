@@ -60,15 +60,8 @@ Follow the specification standards and patterns described below.
 ### 3. Validate Your Changes
 
 ```bash
-# Validate JSON Schema files
-ajv validate -s examples/events/schemas/gts.x.core.events.event.v1.0~.schema.json \
-    -d examples/events/instances/gts.x.core.events.event.v1.0~x.commerce.orders.order_placed.v1.0.json
-
 # Validate all schemas in a directory
-for schema in examples/events/schemas/*.schema.json; do
-    echo "Validating $schema"
-    ajv compile -s "$schema"
-done
+ajv compile --strict=false -s "examples/events/schemas/*.schema.json"
 
 # Run Python reference implementation tests (if available)
 python -m pytest tests/

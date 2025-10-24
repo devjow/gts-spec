@@ -4,7 +4,7 @@
   "title": "User",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.idp.contact.v1.0~.schema.json" },
+    { "$ref": "gts.x.core.idp.contact.v1.0~" },
     {
       "type": "object",
       "properties": {

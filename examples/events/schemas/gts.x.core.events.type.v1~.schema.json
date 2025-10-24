@@ -1,11 +1,12 @@
 {
-  "$id": "gts.x.core.events.event.v1.0~",
+  "$id": "gts.x.core.events.type.v1~",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Event Envelope (Common Fields)",
   "type": "object",
+  "description": "Base event type definition",
   "required": [
     "id",
-    "gtsId",
+    "type",
     "tenantId",
     "occurredAt"
   ],
@@ -13,22 +14,24 @@
     "additionalProperties": false,
     "topicRef": {
       "description": "ID of the topic where events of this type are stored.",
-      "$ref": "./gts-reference.schema.json#/definitions/gtsId",
-      "pattern": "^gts.x.core.events.topic.v1.0~*"
+      "type": "string",
+      "x-gts-type":"gts.x.core.events.topic.v1~"
     }
   },
   "properties": {
-    "gtsId": {
+    "type": {
       "description": "Identifier of the event type in GTS format.",
-      "$ref": "./gts-reference.schema.json#/definitions/gtsId",
-      "pattern": "^gts.x.core.events.event.v1.0~*",
-      "$comment": "Must be the same as $id"
+      "type": "string",
+      "x-gts-type": "./$id"
     },
     "$schema": {
       "description": "Link to the event type schema.",
       "type": "string"
     },
-    "id": { "type": "string", "format": "uuid" },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
     "tenantId": {
       "type": "string",
       "format": "uuid",
@@ -78,7 +81,8 @@
     },
     "subjectType": {
       "description": "GTS type of the subject of the event.",
-      "$ref": "./gts-reference.schema.json#/definitions/gtsId",
+      "type": "string",
+      "x-gts-type": "*",
       "$comment": "The value is mandatory if subject is present"
     }
   },

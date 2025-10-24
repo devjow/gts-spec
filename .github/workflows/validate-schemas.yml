@@ -25,22 +25,12 @@ jobs:
     - name: Validate schemas
       run: |
         echo "Validating all schema files..."
-        failed=0
 
-        for schema in $(find examples -name "*.schema.json"); do
-          echo "Validating $schema"
-          if ajv compile -s "$schema" --strict=false; then
-            echo "✓ $schema is valid"
-          else
-            echo "✗ $schema is invalid"
-            failed=1
-          fi
-          echo ""
-        done
-
-        if [ $failed -eq 1 ]; then
-          echo "Schema validation failed"
-          exit 1
+        # Compile all schemas together so cross-references can be resolved
+        # The 0-prefixed reference schema loads first alphabetically
+        if ajv compile -s "examples/events/schemas/*.schema.json" --strict=false; then
+          echo "✅ All schemas are valid"
         else
-          echo "All schemas are valid"
+          echo "❌ Schema validation failed"
+          exit 1
         fi
