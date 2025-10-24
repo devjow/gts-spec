@@ -61,6 +61,9 @@ See detailed description and examples below.
   - [8.5 Mapping GTS to UUIDs](#85-mapping-gts-to-uuids)
   - [8.6 GTS Query mini-language](#86-gts-query-mini-language)
   - [8.7 Attribute Selector (`@`)](#87-attribute-selector-)
+  - [8.8 Identifier extraction (instances and schemas)](#88-identifier-extraction-instances-and-schemas)
+  - [8.9 Pattern matching (wildcards)](#89-pattern-matching-wildcards)
+  - [8.10 Relationship resolution (schemas and refs)](#810-relationship-resolution-schemas-and-refs)
 - [9. Collecting Identifiers with Wildcards](#9-collecting-identifiers-with-wildcards)
 - [10. JSON and JSON Schema Conventions](#10-json-and-json-schema-conventions)
 - [11. Notes and Best Practices](#11-notes-and-best-practices)
@@ -578,9 +581,21 @@ For chained identifiers, the pattern enforces that all segments except the last 
 
 ## 8. Reference Operators (Python)
 
-The following reference implementations target Python. Other languages can mirror the semantics in dedicated repositories.
+GTS implementations provide several core operations for working with identifiers:
 
-> Requirements: `jsonschema>=4`, `uuid` from the standard library.
+- **OP#1 - ID Validation**: Verify identifier syntax using regex patterns
+- **OP#2 - ID Extraction**: Fetch identifiers from JSON objects or JSON Schema documents
+- **OP#3 - ID Parsing**: Decompose identifiers into constituent parts (vendor, package, namespace, type, version, etc.)
+- **OP#4 - ID Pattern Matching**: Match identifiers against patterns containing wildcards
+- **OP#5 - ID to UUID Mapping**: Generate deterministic UUIDs from GTS identifiers
+- **OP#6 - Schema Validation**: Validate object instances against their corresponding schemas
+- **OP#7 - Relationship Resolution**: Load all schemas and instances, resolve inter-dependencies, and detect broken references
+- **OP#8 - Compatibility Checking**: Verify that schemas with different MINOR versions are compatible
+- **OP#9 - Version Casting**: Transform instances between compatible MINOR versions
+- **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
+- **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
+
+The following sections provide reference implementations in Python. Implementations in other languages should mirror these semantics and are maintained in dedicated repositories.
 
 ### 8.1 Normalize, validate, and parse
 
@@ -701,6 +716,23 @@ def split_chain(gts_id: str) -> List[Gtx]:
         raise ValueError("Identifier ends with '~' but last segment is not marked as type")
 
     return segments
+```
+
+Validation helpers (OP#1)
+
+```python
+def is_valid_gts_segment(s: str) -> bool:
+    """Check if a single segment (absolute or relative) is syntactically valid."""
+    return bool(ABSOLUTE_SEGMENT_PATTERN.fullmatch(s) or RELATIVE_SEGMENT_PATTERN.fullmatch(s))
+
+
+def is_valid_gts_id(s: str) -> bool:
+    """Check if a full GTS identifier (single or chained) is valid by parsing it."""
+    try:
+        _ = split_chain(s)
+        return True
+    except Exception:
+        return False
 ```
 
 ### 8.2 Validate object against schema
@@ -1001,6 +1033,149 @@ def resolve_path(obj: object, path: str) -> object:
         except (KeyError, IndexError, ValueError):
             raise KeyError(f"Path segment '{p}' not found in path '{path}'")
     return cur
+```
+
+### 8.8 Identifier extraction (instances and schemas)
+
+OP#2 extracts GTS identifiers from JSON instances and JSON Schema documents.
+
+```python
+from typing import Iterable, Set
+
+
+def _walk_json(o: object) -> Iterable[object]:
+    if isinstance(o, dict):
+        for v in o.values():
+            yield from _walk_json(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from _walk_json(v)
+    else:
+        yield o
+
+
+def extract_identifiers_from_instance(obj: dict, fields: tuple[str, ...] = ("gtsId", "$id")) -> Set[str]:
+    """Collect all strings in the object that look like valid GTS identifiers.
+
+    Heuristic: prefer known fields like 'gtsId' or '$id', but also scan all string values.
+    """
+    found: Set[str] = set()
+    # Preferred fields
+    for f in fields:
+        v = obj.get(f)
+        if isinstance(v, str) and is_valid_gts_id(v):
+            found.add(v)
+    # Fallback: scan all strings
+    for v in _walk_json(obj):
+        if isinstance(v, str) and is_valid_gts_id(v):
+            found.add(v)
+    return found
+
+
+def extract_identifiers_from_schema(schema: dict) -> Set[str]:
+    """Collect type identifiers from a JSON Schema: $id and any $ref values that are GTS strings."""
+    found: Set[str] = set()
+    # $id
+    sid = schema.get("$id")
+    if isinstance(sid, str) and is_valid_gts_id(sid):
+        found.add(sid)
+    # $ref occurrences
+    for v in _walk_json(schema):
+        if isinstance(v, dict) and "$ref" in v:
+            ref = v.get("$ref")
+            if isinstance(ref, str) and is_valid_gts_id(ref):
+                found.add(ref)
+        elif isinstance(v, str) and is_valid_gts_id(v):
+            # in case refs are represented as plain strings in arrays
+            found.add(v)
+    return found
+```
+
+### 8.9 Pattern matching (wildcards)
+
+OP#8 matches identifiers against greedy end-of-string wildcard patterns.
+
+```python
+def wildcard_match(pattern: str, candidate: str) -> bool:
+    """
+    Matches a candidate identifier against a greedy, end-of-string wildcard pattern.
+
+    Rules:
+    - Only one '*' is allowed
+    - '*' must be the last character
+    """
+    if '*' not in pattern:
+        return pattern == candidate
+
+    if pattern.count('*') > 1:
+        return False
+
+    if not pattern.endswith('*'):
+        return False
+
+    prefix = pattern[:-1]
+    return candidate.startswith(prefix)
+```
+
+### 8.10 Relationship resolution (schemas and refs)
+
+OP#5 loads schemas, resolves inter-dependencies via $ref, and detects broken references.
+
+```python
+from collections import defaultdict
+from typing import Dict, Set, Tuple, List
+
+
+def _extract_type_refs(schema: dict) -> Set[str]:
+    refs: Set[str] = set()
+    for v in _walk_json(schema):
+        if isinstance(v, dict) and "$ref" in v and isinstance(v["$ref"], str):
+            ref = v["$ref"]
+            if is_valid_gts_id(ref) and ref.endswith("~"):
+                refs.add(ref)
+    return refs
+
+
+def build_schema_graph(store: SchemaStore) -> Tuple[Dict[str, Set[str]], List[str]]:
+    """Return adjacency graph and list of missing referenced type IDs."""
+    graph: Dict[str, Set[str]] = {}
+    missing: Set[str] = set()
+    for type_id, schema in store._by_id.items():  # simple access for illustration
+        refs = _extract_type_refs(schema) - {type_id}
+        graph[type_id] = refs
+        for r in refs:
+            if r not in store._by_id:
+                missing.add(r)
+    return graph, sorted(missing)
+
+
+def detect_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
+    """Detect cycles in the dependency graph using DFS."""
+    cycles: List[List[str]] = []
+    temp: Set[str] = set()
+    perm: Set[str] = set()
+    stack: list[str] = []
+
+    def visit(n: str):
+        if n in perm:
+            return
+        if n in temp:
+            # cycle found
+            if n in stack:
+                i = stack.index(n)
+                cycles.append(stack[i:] + [n])
+            return
+        temp.add(n)
+        stack.append(n)
+        for m in graph.get(n, ()): visit(m)
+        stack.pop()
+        temp.remove(n)
+        perm.add(n)
+
+    for node in graph.keys():
+        if node not in perm:
+            visit(node)
+    return cycles
 ```
 
 
