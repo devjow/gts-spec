@@ -4,7 +4,7 @@
   "description": "Collection of valid and invalid GTS identifier examples based on the specification",
   "valid": [
     {
-      "id": "gts.x.core.events.event.v1~",
+      "id": "gts.x.core.events.type.v1~",
       "description": "Simple type identifier with major version only",
       "category": "type",
       "tests": ["basic_format", "type_marker", "major_version_only"]
@@ -46,13 +46,13 @@
       "tests": ["long_segments"]
     },
     {
-      "id": "gts.x.core.events.event.v1~abc.app._.custom_event.v1~",
+      "id": "gts.x.core.events.type.v1~abc.app._.custom_event.v1~",
       "description": "Chained type identifiers",
       "category": "type_chain",
       "tests": ["chaining", "inheritance"]
     },
     {
-      "id": "gts.x.core.events.event.v1~abc.app._.custom_event.v1.2",
+      "id": "gts.x.core.events.type.v1~abc.app._.custom_event.v1.2",
       "description": "Chained with instance at the end",
       "category": "instance_chain",
       "tests": ["chaining", "instance_termination"]
@@ -82,7 +82,7 @@
       "tests": ["short_segments", "large_versions"]
     },
     {
-      "id": "gts.x.core.events.event.v1~vendor.app.derived.event.v2~vendor.app._.event.v2.0",
+      "id": "gts.x.core.events.type.v1~vendor.app.derived.event.v2~vendor.app._.event.v2.0",
       "description": "Chain with matching versions in different formats",
       "category": "instance_chain",
       "tests": ["version_format_variation"]
@@ -106,7 +106,7 @@
       "tests": ["underscore_start", "mixed_characters"]
     },
     {
-      "id": "gts.x.core.events.event.v1~a.b.c.d.v1~e.f.g.h.v1~i.j.k.l.v1.0",
+      "id": "gts.x.core.events.type.v1~a.b.c.d.v1~e.f.g.h.v1~i.j.k.l.v1.0",
       "description": "Long chain ending with instance",
       "category": "instance_chain",
       "tests": ["long_chain", "instance_termination"]
@@ -120,73 +120,73 @@
   ],
   "invalid": [
     {
-      "id": "GTS.x.core.events.event.v1~",
+      "id": "GTS.x.core.events.type.v1~",
       "description": "Uppercase prefix (must be lowercase)",
       "reason": "case_sensitivity",
       "violation": "GTS identifiers must be lowercase"
     },
     {
-      "id": "gts.X.core.events.event.v1~",
+      "id": "gts.X.core.events.type.v1~",
       "description": "Uppercase in vendor segment",
       "reason": "case_sensitivity",
       "violation": "All segments must be lowercase"
     },
     {
-      "id": "gts.x.core.events.event.V1~",
+      "id": "gts.x.core.events.type.V1~",
       "description": "Uppercase V in version",
       "reason": "case_sensitivity",
       "violation": "Version prefix must be lowercase 'v'"
     },
     {
-      "id": "x.core.events.event.v1~",
+      "id": "x.core.events.type.v1~",
       "description": "Missing 'gts.' prefix",
       "reason": "missing_prefix",
       "violation": "Must start with 'gts.' prefix"
     },
     {
-      "id": "gts.x.core.events.event.1~",
+      "id": "gts.x.core.events.type.1~",
       "description": "Missing 'v' before version number",
       "reason": "version_format",
       "violation": "Version must start with 'v'"
     },
     {
-      "id": "gts.x.core.events.event.v1.2.3~",
+      "id": "gts.x.core.events.type.v1.2.3~",
       "description": "Patch version not allowed (three version components)",
       "reason": "version_format",
       "violation": "Only major.minor allowed, no patch version"
     },
     {
-      "id": "gts.x.core.events.event.v-1~",
+      "id": "gts.x.core.events.type.v-1~",
       "description": "Negative version number",
       "reason": "version_format",
       "violation": "Version numbers must be non-negative integers"
     },
     {
-      "id": "gts.x.core.events.event.v1.~",
+      "id": "gts.x.core.events.type.v1.~",
       "description": "Trailing dot after minor version",
       "reason": "version_format",
       "violation": "Invalid version format"
     },
     {
-      "id": "gts.x.core.events.event.v01~",
+      "id": "gts.x.core.events.type.v01~",
       "description": "Leading zero in major version",
       "reason": "version_format",
       "violation": "Version numbers cannot have leading zeros (except 0 itself)"
     },
     {
-      "id": "gts.x.core.events.event.v1.01~",
+      "id": "gts.x.core.events.type.v1.01~",
       "description": "Leading zero in minor version",
       "reason": "version_format",
       "violation": "Version numbers cannot have leading zeros"
     },
     {
-      "id": "gts.1vendor.core.events.event.v1~",
+      "id": "gts.1vendor.core.events.type.v1~",
       "description": "Segment starting with digit",
       "reason": "segment_format",
       "violation": "Segments must start with letter or underscore"
     },
     {
-      "id": "gts.x.core-events.events.event.v1~",
+      "id": "gts.x.core-events.events.type.v1~",
       "description": "Hyphen in segment (invalid character)",
       "reason": "segment_format",
       "violation": "Segments can only contain lowercase letters, digits, and underscores"
@@ -198,19 +198,19 @@
       "violation": "Segments cannot be empty"
     },
     {
-      "id": "gts.x.core.events.event.v1.0~~",
+      "id": "gts.x.core.events.type.v1.0~~",
       "description": "Double tilde at end",
       "reason": "format_error",
       "violation": "Only one trailing tilde allowed"
     },
     {
-      "id": "gts.x.core.events.event.v1~gts.abc.app._.custom.v1~",
+      "id": "gts.x.core.events.type.v1~gts.abc.app._.custom.v1~",
       "description": "Repeated 'gts.' prefix in chain",
       "reason": "chaining_error",
       "violation": "Only first segment should have 'gts.' prefix"
     },
     {
-      "id": "gts.x.core.events.event.v1.abc.app.namespace.custom.v1",
+      "id": "gts.x.core.events.type.v1.abc.app.namespace.custom.v1",
       "description": "Chain with non-type in middle (missing ~)",
       "reason": "chaining_error",
       "violation": "All chain segments except last must be types (end with ~)"
@@ -234,7 +234,7 @@
       "violation": "Must have exactly 4 segments: vendor.package.namespace.type, then version"
     },
     {
-      "id": " gts.x.core.events.event.v1~ ",
+      "id": " gts.x.core.events.type.v1~ ",
       "description": "Leading/trailing whitespace",
       "reason": "whitespace",
       "violation": "No leading or trailing whitespace allowed"
@@ -266,7 +266,7 @@
       "note": "Total identifier length must not exceed 1024 characters"
     },
     {
-      "id": "gts.x.core.events.event.v1.0.0~",
+      "id": "gts.x.core.events.type.v1.0.0~",
       "description": "Three-part version (patch)",
       "valid": false,
       "note": "Only major.minor format allowed, no patch version"
