@@ -147,11 +147,11 @@ gts.x.mq.events.topic.v1~ # defines ID of a schema of the MQ topic stream provid
 
 Multiple GTS identifiers can be chained with `~` to express derivation and conformance. The chain follows **left-to-right inheritance** semantics:
 
-- Pattern: `gts.<gtx1>~<gtx2>~<gtx3>`
-- Where **GTX** (Global Type Extension) stands for a single type segment: <vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
-  - `<gtx1>` is a **base type** (schema ID ending with `~`)
-  - `<gtx2>` is a **derived/refined type** (schema ID ending with `~`) that extends `<gtx1>` with additional constraints or implementation-specific details. It MUST be compatible with `<gtx1>`.
-  - `<gtx3>` is an **instance identifier** (no trailing `~`) that conforms to `<gtx2>`. By transitivity, it also conforms to `<gtx1>`.
+- Pattern: `gts.<segment1>~<segment2>~<segment3>`
+- Where **<segment>** is a single GTS identifier segment: `<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
+  - `<segment1>` is a **base type** (schema ID ending with `~`)
+  - `<segment2>` is a **derived/refined type** (schema ID ending with `~`) that extends `<segment1>` with additional constraints or implementation-specific details. It MUST be compatible with `<segment1>`.
+  - `<segment3>` is an **instance identifier** (no trailing `~`) that conforms to `<segment2>`. By transitivity, it also conforms to `<segment1>`.
 
 **Important:** Each type in the chain inherits from its immediate predecessor (left neighbor) and MUST maintain compatibility.
 
@@ -183,14 +183,14 @@ The complete GTS identifier syntax in Extended Backus-Naur Form (EBNF):
 
 ```ebnf
 (* Top-level identifier *)
-gts-identifier = "gts." , gtx-segment , [ chain-suffix ] ;
+gts-identifier = "gts." , gts-segment , [ chain-suffix ] ;
 
 (* Chain of type extensions *)
-chain-suffix   = { "~" , gtx-segment } , [ final-tilde ] ;
+chain-suffix   = { "~" , gts-segment } , [ final-tilde ] ;
 final-tilde    = "~" ;  (* present for type IDs, absent for instance IDs *)
 
-(* Single GTX segment *)
-gtx-segment    = vendor , "." , package , "." , namespace , "." , type , "." , version ;
+(* Single GTS ID segment *)
+gts-segment    = vendor , "." , package , "." , namespace , "." , type , "." , version ;
 
 vendor         = segment ;
 package        = segment ;
@@ -218,7 +218,7 @@ non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 1. **Type vs Instance distinction**: A GTS identifier ending with `~` (final-tilde present) denotes a type/schema. Without the trailing `~`, it denotes an instance.
 
-2. **Chain interpretation**: In a chained identifier `gts.<gtx1>~<gtx2>~<gtx3>`, each `~` acts as a separator. All segments before the final segment MUST be types (conceptually ending with `~`). The final segment determines whether the entire identifier is a type or instance.
+2. **Chain interpretation**: In a chained identifier `gts.<gts-segment1>~<gts-segment2>~<gts-segment3>`, each `~` acts as a separator. All segments before the final segment MUST be types (conceptually ending with `~`). The final segment determines whether the entire identifier is a type or instance.
 
 3. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It is recommended to use the placeholder only for the `<namespace>` segment.
 
@@ -296,7 +296,7 @@ cti.x.core.acm.user_setting.v1[user_type="gts.x.core.acm.user.v1~z.app._.app_adm
 Multiple parameters are combined with logical AND to further restrict the result set:
 
 ```bash
-gtx.x.z.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d" ]
+gts.x.y.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d" ]
 ```
 
 ### 3.4 Attribute selector
@@ -307,13 +307,13 @@ The selector always resolves from the instance root and returns one attribute pe
 
 ```bash
 # refer to the value of the message identifier
-gti.x.y.z.message.v1@id
+gts.x.y.z.message.v1@id
 ```
 
 Nested attributes also can be accessed within the instance's structure. For example:
 ```bash
 # refer to the value of the 'bar' item property from the 'foo' field
-cti.a.p.message.v1.0@foo.bar
+gts.x.y.z.message.v1.0@foo.bar
 ```
 
 ### 3.5 Access control with wildcards
@@ -612,7 +612,7 @@ RELATIVE_SEGMENT_PATTERN = re.compile(r"^([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\
 
 
 @dataclass(frozen=True)
-class Gtx:
+class GtsIdSegment:
     vendor: str
     package: str
     namespace: str
@@ -627,12 +627,12 @@ class Gtx:
         return f"gts.{self.vendor}.{self.package}.{self.namespace}.{self.type}.{v}{suffix}"
 
 
-def parse_absolute(segment: str) -> Gtx:
+def parse_absolute(segment: str) -> GtsIdSegment:
     m = ABSOLUTE_SEGMENT_PATTERN.fullmatch(segment)
     if not m:
         raise ValueError(f"Invalid absolute GTS segment: {segment}")
     vendor, package, namespace, type_, major, minor, is_type = m.groups()
-    return Gtx(
+    return GtsIdSegment(
         vendor=vendor,
         package=package,
         namespace=namespace,
@@ -643,12 +643,12 @@ def parse_absolute(segment: str) -> Gtx:
     )
 
 
-def parse_relative(segment: str) -> Gtx:
+def parse_relative(segment: str) -> GtsIdSegment:
     m = RELATIVE_SEGMENT_PATTERN.fullmatch(segment)
     if not m:
         raise ValueError(f"Invalid relative GTS segment: {segment}")
     vendor, package, namespace, type_, major, minor, is_type = m.groups()
-    return Gtx(
+    return GtsIdSegment(
         vendor=vendor,
         package=package,
         namespace=namespace,
@@ -659,7 +659,7 @@ def parse_relative(segment: str) -> Gtx:
     )
 
 
-def parse_single(segment: str) -> Gtx:
+def parse_single(segment: str) -> GtsIdSegment:
     """
     Parse a single GTS segment (absolute or relative) into structured components.
 
@@ -667,7 +667,7 @@ def parse_single(segment: str) -> Gtx:
         segment: A GTS segment (e.g., 'gts.x.core.events.event.v1~' or 'x.app._.custom.v1.2')
 
     Returns:
-        Gtx object with parsed vendor, package, namespace, type, version, and type flag
+        GtsIdSegment object with parsed vendor, package, namespace, type, version, and type flag
 
     Raises:
         ValueError: If the segment doesn't match either pattern
@@ -678,9 +678,9 @@ def parse_single(segment: str) -> Gtx:
         return parse_relative(segment)
 
 
-def split_chain(gts_id: str) -> List[Gtx]:
+def split_chain(gts_id: str) -> List[GtsIdSegment]:
     """
-    Parse a GTS identifier (single or chained) into a list of GTX segments.
+    Parse a GTS identifier (single or chained) into a list of GtsIdSegment segments.
 
     The first segment must be absolute (with 'gts.' prefix). Subsequent segments
     are relative (without 'gts.'). All but the last segment MUST be types.
@@ -689,7 +689,7 @@ def split_chain(gts_id: str) -> List[Gtx]:
         gts_id: Full GTS identifier (e.g., 'gts.x.base.v1~vendor.derived.v1.2')
 
     Returns:
-        List of Gtx objects representing the chain
+        List of GtsIdSegment objects representing the chain
 
     Raises:
         ValueError: If the identifier is malformed or violates chaining rules
@@ -700,7 +700,7 @@ def split_chain(gts_id: str) -> List[Gtx]:
         raise ValueError("Empty GTS identifier")
 
     # First segment: absolute
-    segments: List[Gtx] = [parse_absolute(parts[0])]
+    segments: List[GtsIdSegment] = [parse_absolute(parts[0])]
 
     # Remaining: relative
     for p in parts[1:]:
@@ -768,7 +768,7 @@ class SchemaStore:
         return self._by_id[type_id]
 
 
-def rightmost_type_id(chain: List[Gtx]) -> str:
+def rightmost_type_id(chain: List[GtsIdSegment]) -> str:
     """
     Extract the rightmost type ID from a GTS chain.
 
@@ -778,7 +778,7 @@ def rightmost_type_id(chain: List[Gtx]) -> str:
     - A standalone instance without a chain is invalid
 
     Args:
-        chain: List of parsed GTX segments
+        chain: List of parsed GtsIdSegment segments
 
     Returns:
         The type identifier string (ending with ~)
@@ -914,15 +914,15 @@ MAJOR_NS = uuid.uuid5(uuid.NAMESPACE_URL, "gts:major")
 FULL_NS = uuid.uuid5(uuid.NAMESPACE_URL, "gts:full")
 
 
-def _strip_minor(gtx: Gtx) -> Gtx:
-    return Gtx(
-        vendor=gtx.vendor,
-        package=gtx.package,
-        namespace=gtx.namespace,
-        type=gtx.type,
-        major=gtx.major,
+def _strip_minor(gts_id_segment: GtsIdSegment) -> GtsIdSegment:
+    return GtsIdSegment(
+        vendor=gts_id_segment.vendor,
+        package=gts_id_segment.package,
+        namespace=gts_id_segment.namespace,
+        type=gts_id_segment.type,
+        major=gts_id_segment.major,
         minor=None,
-        is_type=gtx.is_type,
+        is_type=gts_id_segment.is_type,
     )
 
 
