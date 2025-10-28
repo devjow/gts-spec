@@ -1,4 +1,4 @@
-> **VERSION**: GTS early draft, version 0.2
+> **VERSION**: GTS specification draft, version 0.3
 
 # Global Type System (GTS) Specification
 
@@ -30,7 +30,16 @@ They can be used instead of UUID, ULID, URN, JSON Schema URL, XML Namespace URI,
 - Database schemas
 - Compliance and audit objects
 
-See detailed description and examples below.
+Besides being a universal identifier, GTS provides concrete, production-ready capabilities that solve common architectural challenges for platform vendors and service providers integrating multiple third-party services under single control plane. In particular:
+
+- **Extensible plugin architectures**: Third-party vendors can safely extend platform base types such as custom API fields, events, settings, configs, UI elements, user roles, licensing, etc.
+- **Cross-vendor type safety**: Validate contracts (APIs, events, configs, etc.) across multiple vendors with automated compatibility checking in a middleware layer
+- **Hybrid database storage**: Store base type fields in indexed columns for fast queries, vendor-specific extensions in JSON/JSONB—no schema migrations needed
+- **Granular access control**: Use wildcard patterns and attribute-based policies for fine-grained type-based authorization (ABAC) without maintaining explicit lists
+- **Human-readable debugging**: Identifiers encode vendor, package, namespace, and version—instantly comprehensible in logs and traces
+- **Schema evolution without downtime**: Add optional fields, register new derived types, and deploy producers/consumers independently
+
+See the [Practical Benefits for Service and Platform Vendors](#51-practical-benefits-for-service-and-platform-vendors) section for more details.
 
 ## Table of Contents
 
@@ -42,32 +51,31 @@ See detailed description and examples below.
   - [2.3 Formal Grammar (EBNF)](#23-formal-grammar-ebnf)
 - [3. Semantics and Capabilities](#3-semantics-and-capabilities)
   - [3.1 Core Operations](#31-core-operations)
-  - [3.2 Minor Version Compatibility](#32-minor-version-compatibility)
+  - [3.2 GTS Types Inheritance](#32-gts-types-inheritance)
   - [3.3 Query Language](#33-query-language)
   - [3.4 Attribute selector](#34-attribute-selector)
   - [3.5 Access control with wildcards](#35-access-control-with-wildcards)
   - [3.6 Access Control Implementation Notes](#36-access-control-implementation-notes)
-- [4. Typical Uses](#4-typical-uses)
-- [5. Implementation-defined and Non-goals](#5-implementation-defined-and-non-goals)
-- [6. Comparison with other identifiers](#6-comparison-with-other-identifiers)
-- [7. Parsing and Validation](#7-parsing-and-validation)
-  - [7.1 Single-segment regex (type or instance)](#71-single-segment-regex-type-or-instance)
-  - [7.2 Chained identifier regex](#72-chained-identifier-regex)
-- [8. Reference Operators (Python)](#8-reference-operators-python)
-  - [8.1 Normalize, validate, and parse](#81-normalize-validate-and-parse)
-  - [8.2 Validate object against schema](#82-validate-object-against-schema)
-  - [8.3 Minor version casting (downcast/upcast)](#83-minor-version-casting-downcastupcast)
-  - [8.4 Type compatibility across minor versions](#84-type-compatibility-across-minor-versions)
-  - [8.5 Mapping GTS to UUIDs](#85-mapping-gts-to-uuids)
-  - [8.6 GTS Query mini-language](#86-gts-query-mini-language)
-  - [8.7 Attribute Selector (`@`)](#87-attribute-selector-)
-  - [8.8 Identifier extraction (instances and schemas)](#88-identifier-extraction-instances-and-schemas)
-  - [8.9 Pattern matching (wildcards)](#89-pattern-matching-wildcards)
-  - [8.10 Relationship resolution (schemas and refs)](#810-relationship-resolution-schemas-and-refs)
-- [9. Collecting Identifiers with Wildcards](#9-collecting-identifiers-with-wildcards)
-- [10. JSON and JSON Schema Conventions](#10-json-and-json-schema-conventions)
-- [11. Notes and Best Practices](#11-notes-and-best-practices)
-- [12. Registered Vendors](#12-registered-vendors)
+- [4. GTS Identifier Versions Compatibility](#4-gts-identifier-versions-compatibility)
+  - [4.1 Compatibility Modes](#41-compatibility-modes)
+  - [4.2 JSON Schema Content Models](#42-json-schema-content-models)
+  - [4.3 Compatibility Rules](#43-compatibility-rules)
+  - [4.4 GTS Versions Compatibility Examples](#44-gts-versions-compatibility-examples)
+  - [4.5 Best Practices for Schema Evolution](#45-best-practices-for-schema-evolution)
+- [5. Typical Use-cases](#5-typical-use-cases)
+  - [5.1 Practical Benefits for Service and Platform Vendors](#51-practical-benefits-for-service-and-platform-vendors)
+  - [5.2 Example: Multi-vendor Event Management Platform](#52-example-multi-vendor-event-management-platform)
+  - [5.3 Schema Registry Requirement](#53-schema-registry-requirement)
+- [6. Implementation-defined and Non-goals](#6-implementation-defined-and-non-goals)
+- [7. Comparison with other identifiers](#7-comparison-with-other-identifiers)
+- [8. Parsing and Validation](#8-parsing-and-validation)
+  - [8.1 Single-segment regex (type or instance)](#81-single-segment-regex-type-or-instance)
+  - [8.2 Chained identifier regex](#82-chained-identifier-regex)
+- [9. Reference Implementation](#9-reference-implementation)
+- [10. Collecting Identifiers with Wildcards](#10-collecting-identifiers-with-wildcards)
+- [11. JSON and JSON Schema Conventions](#11-json-and-json-schema-conventions)
+- [12. Notes and Best Practices](#12-notes-and-best-practices)
+- [13. Registered Vendors](#13-registered-vendors)
 
 
 ## Document Version
@@ -76,6 +84,7 @@ See detailed description and examples below.
 |------------------|-----------------------------------------------------------------------------------------------|
 | 0.1              | Initial Draft, Request for Comments                                                           |
 | 0.2              | Semantics and Capabilities refined - access control notes, query language, attribute selector |
+| 0.3              | Version compatibility rules refined; more practical examples of usage; remove Python examples |
 
 
 ## 1. Motivation
@@ -92,7 +101,7 @@ The primary value of GTS is to provide a single, universal identifier that is im
 
 **Vendor and Domain Agnostic**: By supporting explicit vendor registration, GTS facilitates safe, cross-vendor data exchange (e.g., in event buses or plugin systems) while preventing naming collisions and ensuring the origin of a definition is clear.
 
-#### 1.2 Enforcing Type Safety and Extensibility
+### 1.2 Enforcing Type Safety and Extensibility
 
 **Explicit Schema/Instance Distinction**: The GTS naming format clearly separates a type definition (schema) from a concrete data instance, enabling unambiguous schema resolution and validation.
 
@@ -100,7 +109,7 @@ The primary value of GTS is to provide a single, universal identifier that is im
 
 **Built-in Version Compatibility**: By adopting a constrained Semantic Versioning model, GTS inherently supports automated compatibility checking across minor versions. This simplifies data casting (upcast/downcast), allowing consumers to safely process data from newer schema versions without breaking.
 
-#### 1.3 Simplifying Policy and Tooling
+### 1.3 Simplifying Policy and Tooling
 
 **Granular Access Control**: The structured nature of the identifier enables the creation of coarse-grained access control policies using wildcard matching (e.g., granting a service permission to process all events from a specific vendor/package: gts.myvendor.accounting.*).
 
@@ -115,7 +124,7 @@ GTS identifiers name either a schema (type) or an instance (object). A single GT
 
 The GTS identifier is a string with total length of 1024 characters maximum.
 
-#### 2.1 Canonical form
+### 2.1 Canonical form
 
 - A single type identifier (schema):
   - `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~`
@@ -133,8 +142,8 @@ The `<namespace>` specifies a category of GTS definitions within the package, an
 Segments must be lowercase ASCII letters, digits, and underscores; they must start with a letter or underscore: `[a-z_][a-z0-9_]*`. The single underscore `_` is reserved as a placeholder and may only be used for the `<namespace>` segment.
 
 Versioning uses semantic versioning constrained to major and optional minor: `v<MAJOR>[.<MINOR>]` where `<MAJOR>` and `<MINOR>` are non-negative integers, for example:
-- `gts.x.core.events.event.v1~` - defines a base event type in the system
-- `gts.x.core.events.event.v1.2~` - defines a specific edition v1.2 of the base event type
+- `gts.x.core.events.type.v1~` - defines a base event type in the system
+- `gts.x.core.events.type.v1.2~` - defines a specific edition v1.2 of the base event type
 
 **Examples** - The GTS identifier can be used for instance or type identifiers:
 ```bash
@@ -168,10 +177,10 @@ Multiple GTS identifiers can be chained with `~` to express derivation and confo
 
 ``` bash
 # Base type only (standalone schema)
-gts.x.core.events.event.v1~
+gts.x.core.events.type.v1~
 
-# Type `ven.app._.custom_event.v1` derives from base type `gts.x.core.events.event.v1`. Both are schemas (trailing `~`).
-gts.x.core.events.event.v1~ven.app._.custom_event.v1~
+# Type `ven.app._.custom_event.v1` derives from base type `gts.x.core.events.type.v1`. Both are schemas (trailing `~`).
+gts.x.core.events.type.v1~ven.app._.custom_event.v1~
 
 # Instance `ven.app._.custom_event_topic.v1.2` (no trailing `~`) conforms to type `gts.x.core.events.topic.v1`. The identifier shows the full inheritance chain.
 gts.x.core.events.topic.v1~ven.app._.custom_event_topic.v1.2
@@ -240,13 +249,13 @@ GTS identifiers enable the following operations and use cases:
    - For an instance identifier: extract the rightmost type from the chain and validate the object against that schema
    - Chain validation: optionally verify that each type in the chain is compatible with its predecessor
 
-3. **Version Compatibility Checking**: Automatically determine if schemas with different MINOR versions are compatible (see section 3.2).
+3. **Version Compatibility Checking**: Automatically determine if schemas with different MINOR versions are compatible (see section 4).
 
 4. **Access Control Policies**: Build fine-grained or coarse-grained authorization rules using:
    - Exact identifier matching
    - Wildcard patterns (e.g., `gts.vendor.package.*`)
    - Chain-based isolation (e.g., restrict access to specific vendor's extensions)
-   - See also ABAC use-cases in sections 3.2 and 3.3 below
+   - See also ABAC use-cases in sections 3.3 and 3.4 below
 
 5. **Extensible Type Systems**: Enable platforms where:
    - Base system types are defined by a core vendor
@@ -254,49 +263,117 @@ GTS identifiers enable the following operations and use cases:
    - All validation guarantees are preserved through the inheritance chain
    - Type evolution is tracked explicitly through versioning
 
-### 3.2 Minor Version Compatibility
+### 3.2 GTS Types Inheritance
 
-**Semantic Versioning Rules for GTS:**
+GTS chained identifiers express type derivation through **left-to-right inheritance**. In a chain like `gts.A~B~C`:
 
-MINOR version increments (e.g., v1.2 → v1.3) within the same MAJOR version MUST maintain backward compatibility:
+- Type `B` extends type `A` by adding constraints or refining field definitions
+- Type `C` further extends type `B` in the same manner
+- Each derived type MUST be **fully compatible** with its predecessor (see section 4.3)
 
-**Allowed changes (backward compatible):**
-- Adding new optional properties with default value
-- Clarifying documentation or examples
+**Compatibility guarantee**: Every valid instance of a derived type is also a valid instance of all its base types in the chain. This means:
+- An instance conforming to `C` also conforms to `B` and `A`
+- Validation against the rightmost type automatically ensures conformance to all base types
+- Derived types can only add optional fields (in open models), tighten constraints, or provide more specific definitions—never break base type contracts
 
-**Prohibited changes (breaking):**
-- Removing required properties
-- Adding new required properties
-- Changing property types incompatibly
-- Tightening constraints on existing fields
-- Removing enum values
-- Adding new enum values (prohibited to catch problems with if/else/switch and version downcast, instead define enums as gts instances of a base enum type)
-- Relaxing constraints (e.g., v1.0 has field with max length 128, in v1.1 length changed to 256, v1.1 -> v1.0 cast would need to cut off some data)
+This inheritance model enables safe extensibility: third-party vendors can extend platform base types while maintaining full compatibility with the core system.
 
-**Chain Compatibility:**
-- In a chain `gts.A~B~C`, type `B` MUST be compatible with `A`, and type `C` MUST be compatible with `B`
-- Compatibility is verified left-to-right: each type must accept all valid instances of its predecessor
-- Use MAJOR version increment for any breaking change
+**Implementation pattern: Hybrid storage for extensible schemas**
 
-**Practical implication:** A consumer expecting v1.2 can safely process objects validated against v1.3 of the same schema.
+GTS types inheritance enables a powerful database design pattern that combines **structured storage** for base type fields with **flexible JSON storage** for derived type extensions. This approach provides:
+
+- **Query performance**: Index and query base type fields using native database types
+- **Extensibility**: Store vendor-specific extensions as JSON/JSONB without schema migrations
+- **Type safety**: Validate all data against registered GTS schemas before storage
+- **Multi-tenancy**: Support multiple vendors extending the same base type in a single table
+
+**Example: Event Management Platform**
+
+A platform defines a base event schema with common fields:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gts.x.core.events.type.v1~",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "typeId": { "type": "string" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object", "additionalProperties": true }
+  },
+  "required": ["id", "typeId", "occurredAt", "payload"]
+}
+```
+
+A third-party vendor (ABC) registers a derived event type for order placement:
+
+```jsonc
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gts.x.core.events.type.v1~abc.events.order_placed.v1~", // define a new event type derived from the base event type
+  "type": "object",
+  "allOf": [
+    { "$ref": "gts.x.core.events.type.v1~" }, // inherit base event schema
+    {
+      "properties": {
+        "typeId": { "const": "gts.x.core.events.type.v1~abc.orders.order_placed.v1~" },
+        "payload": {
+          "type": "object",
+          "properties": { // define the payload structure specific for this new event type
+            "orderId": { "type": "string" },
+            "customerId": { "type": "string" },
+            "totalAmount": { "type": "number" },
+            "items": { "type": "array", "items": { "type": "object" } }
+          },
+          "required": ["orderId", "customerId", "totalAmount", "items"],
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
+```
+
+The platform stores all events in a single table using hybrid storage:
+
+```sql
+CREATE TABLE events (
+    id VARCHAR(255) PRIMARY KEY,     -- Indexed for fast event fetch by ID
+    type_id VARCHAR(255) NOT NULL,   -- Indexed for filtering by event type
+    occurred_at TIMESTAMP NOT NULL,  -- Indexed for time-range queries
+    payload JSONB NOT NULL,          -- Vendor-specific extensions stored as JSON
+    INDEX idx_type_occurred (type_id, occurred_at)
+);
+```
+
+**Benefits of this approach:**
+
+1. **No schema migrations**: New event types are registered via GTS schemas, not database DDL
+2. **Efficient queries**: Filter by `type_id` or `occurred_at` using indexes, then parse `payload` only for matching rows
+3. **Vendor isolation**: Use `type_id` patterns (e.g., `gts.x.core.events.type.v1~abc.*`) for access control (see 3.5)
+4. **Full validation**: All events are validated against their registered GTS schema before insertion, ensuring data quality despite flexible storage
+
 
 ### 3.3 Query Language
 
-A compact predicate syntax, inspired by XPath/JSONPath, lets you constrain results by attributes. Attach a square-bracket clause to a GTS identifier with comma-separated name="value" pairs. Example form: <gts>[ attr="value", other="value2" ].
+GTS Query Language is a compact predicate syntax, inspired by XPath/JSONPath, that lets you constrain results by attributes. Attach a square-bracket clause to a GTS identifier with space-separated name="value" pairs. Example form: <gts>[ attr="value", other="value2" ].
+
+> **Scope note:** The query language and attribute selector (section 3.4) are runtime conveniences for filtering and accessing data in GTS-aware applications. They are **not part of the core GTS identifier specification** and should not be embedded in stored identifiers or schema definitions. Use them only in runtime queries, policy evaluation, and data access operations.
 
 Predicates can reference plain literals or GTS-formatted values, e.g.:
 
 ```bash
 # filter all events that are published to the topic "some_topic" by the vendor "z"
-gts.x.core.events.event.v1.0[type_id="gts.x.core.events.topic.v1~z.app._.some_topic.v1"]
+gts.x.core.events.type.v1~[type_id="gts.x.core.events.topic.v1~z.app._.some_topic.v1~"]
 # filter all user settings that were defined for users if type is z-vendor app_admin
-gts.x.core.acm.user_setting.v1[user_type="gts.x.core.acm.user.v1~z.app._.app_admin.v1"]
+gts.x.core.acm.user_setting.v1~[user_type="gts.x.core.acm.user.v1~z.app._.app_admin.v1~"]
 ```
 
 Multiple parameters are combined with logical AND to further restrict the result set:
 
 ```bash
-gts.x.z.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d"]
+gts.x.y.z.type.v1~[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d"]
 ```
 
 ### 3.4 Attribute selector
@@ -322,7 +399,7 @@ Wildcards (`*`) enable policy scopes that cover families of identifiers (e.g., e
 
 ```bash
 # grants access to all the audit events category defined by the vendor 'xyz'
-gts.x.core.events.event.v1~x.core._.audit_event.v1~xyz.*
+gts.x.core.events.type.v1~x.core._.audit_event.v1~xyz.*
 # grants access to all the menu items referring screens of the vendor 'abc'
 gts.x.ui.left_menu.menu_item.v1[screen_type="gts.x.ui.core_ui.screens.v1~abc.*"]
 ```
@@ -339,9 +416,9 @@ The following guidance is provided for implementers building GTS-aware policy en
 - **Action**: Verbs such as `read`, `write`, `emit`, `subscribe`, `admin` defined by the platform.
 
 **Example policy shapes:**
-- **RBAC-style allow**: Role `xyz_auditor` → allow `read` on `gts.x.core.events.event.v1~x.core._.audit_event.v1~xyz.*`
+- **RBAC-style allow**: Role `xyz_auditor` → allow `read` on `gts.x.core.events.type.v1~x.core._.audit_event.v1~xyz.*`
 - **ABAC refinement**: Attach predicate filters like `[screen_type="..."]` to restrict by referenced type.
-- **Derived-type envelopes**: Grant access at the base type (e.g., `gts.x.core.events.event.v1~`) so that derived schemas remain covered if they conform by chain rules.
+- **Derived-type envelopes**: Grant access at the base type (e.g., `gts.x.core.events.type.v1~`) so that derived schemas remain covered if they conform by chain rules.
 
 **Matching semantics options:**
 - **Segment-wise prefixing**: The `*` wildcard can match any valid content of the target segment and its suffix hierarchy, enabling vendor/package/namespace/type grouping.
@@ -351,7 +428,7 @@ The following guidance is provided for implementers building GTS-aware policy en
 **Evaluation guidelines:**
 - **Deny-over-allow (recommended)**: If your engine supports explicit denies, process them before allows to prevent privilege escalation.
 - **Most-specific wins**: Prefer the most specific matching rule (longest concrete prefix, fewest wildcards, most predicates).
-- **Version safety**: Consider pinning MAJOR and, optionally, MINOR versions in sensitive paths; otherwise rely on minor-version compatibility guarantees (see section 3.2).
+- **Version safety**: Consider pinning MAJOR and, optionally, MINOR versions in sensitive paths; otherwise rely on minor-version compatibility guarantees (see section 4).
 - **Tenant isolation**: Use vendor/package scoping to isolate tenants and applications; avoid cross-vendor wildcards unless explicitly required.
 
 **Performance guidelines:**
@@ -360,19 +437,356 @@ The following guidance is provided for implementers building GTS-aware policy en
 - **Auditing**: Log the concrete identifier and the matched rule (pattern + predicates) for traceability and compliance.
 
 
-## 4. Typical Uses
+## 4. GTS Identifier Versions Compatibility
 
-### 4.1 Use-cases
+GTS uses semantic versioning with MAJOR and optional MINOR components. This section covers two distinct compatibility concepts:
 
-- API custom payload schema definitions
-- Event schema definitions
-- Configuration settings schema definitions
-- Database schema definitions
-- Data warehouse object schema definitions
+**1. Type Derivation Compatibility** (via chaining): A derived type like `gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~` must be **always fully compatible** with its base type `gts.x.core.events.type.v1~`. Derived types refine base types by adding constraints or specifying fields left open (e.g., `payload` as `object` with `additionalProperties: true`).
 
-See some definitions in the [examples folder](./examples/)
+**2. Minor Version Compatibility** (same type, different versions): When evolving a single type across minor versions (e.g., `v1.0` → `v1.1` → `v1.2`), compatibility depends on the chosen strategy:
 
-#### 4.2 JSON and JSON Schema examples
+- **MAJOR version increments** (v1 → v2): Always indicate breaking changes
+- **MINOR version increments** (v1.0 → v1.1): Must maintain compatibility according to one of three strategies: backward, forward, or full compatibility
+
+The compatibility mode for minor version evolution is **implementation-defined** and can vary depending on system component implementing the API or DB storage, namespace or use case. For example:
+- Event schemas might use **forward compatibility** (old consumers can read new events)
+- API request payloads might use **backward compatibility** (new servers can process old requests)
+- Configuration schemas might require **full compatibility** (any version can read any other)
+
+### 4.1 Compatibility Modes
+
+Before we dig deeper into the GTS versions compatibility, let's first define the different compatibility modes:
+
+**Backward Compatibility**: A consumer with the **new schema** can process data produced with an **old schema**.
+- **Use case**: Consumers are updated after producers (e.g., API clients updated before servers).
+- **Guarantee**: New code can read old data.
+
+**Forward Compatibility**: A consumer with the **old schema** can process data produced with a **new schema**.
+- **Use case**: Producers are updated before consumers, or to support rollback scenarios.
+- **Guarantee**: Old code can read new data.
+
+**Full Compatibility**: Changes are both backward and forward compatible.
+- **Use case**: Producers and consumers can be deployed in any order.
+- **Guarantee**: Maximum safety but most restrictive evolution path.
+
+> **Implementation note**: The exact compatibility mode is implementation-defined and outside the scope of this specification. Systems may enforce different modes for different identifier namespaces
+
+### 4.2 JSON Schema Content Models
+
+Understanding `additionalProperties` is critical for compatibility:
+
+- **Open content model**: `additionalProperties` is `true` or not specified. The schema accepts fields not explicitly defined.
+- **Closed content model**: `additionalProperties` is `false`. The schema rejects any fields not explicitly defined.
+
+These models affect which changes are safe:
+- Adding a field to a **closed** model is backward compatible (old data has no extra fields; new consumers handle absence).
+- Adding/removing optional fields in an **open** model is fully compatible (open consumers accept any fields; optional fields can be absent).
+
+### 4.3 Compatibility Rules for GTS Schemas
+
+The table below shows which schema changes between minor versions of the same type are safe for each compatibility mode.
+
+> NOTE: The table below illustrates the compatibility rules for GTS schemas of the same type, but different versions. The derived types are always fully compatible with the base type.
+
+| Change | Backward | Forward | Full | Notes |
+|--------|----------|---------|------|-------|
+| **Adding optional property (open model)** | ✅ Yes | ✅ Yes | ✅ Yes | Old consumers ignore new fields (open model accepts any fields). New consumers handle absence of optional field. |
+| **Removing optional property (open model)** | ✅ Yes | ✅ Yes | ✅ Yes | New consumers ignore the removed field in old data (open model accepts any fields). Old consumers handle absence of optional field. |
+| **Updating description/examples** | ✅ Yes | ✅ Yes | ✅ Yes | Documentation changes don't affect validation. |
+| **Updating minor version of referenced GTS types** | ✅ Yes | ✅ Yes | ✅ Yes | Assumes referenced types follow same compatibility rules. |
+| **Adding optional property (closed model)** | ✅ Yes | ❌ No | ❌ No | Old data lacks the field; new consumers handle absence. Old consumers reject new data with extra fields. |
+| **Changing required property to optional** | ✅ Yes | ❌ No | ❌ No | New consumers handle absence. Old data always provides it. |
+| **Removing enum value** | ✅ Yes | ❌ No | ❌ No | New consumers handle remaining values. Old data may use removed value. |
+| **Widening numeric type (int → number)** | ✅ Yes | ❌ No | ❌ No | Old data (integers) is subset of new type. Old consumers may not handle floats. |
+| **Relaxing constraints (e.g., increasing max)** | ✅ Yes | ❌ No | ❌ No | Old data satisfies looser constraints. Old consumers reject values outside old limits. |
+| **Removing optional property (closed model)** | ❌ No | ✅ Yes | ❌ No | Old consumers expect the field may be absent. New data won't have it. |
+| **Changing optional property to required** | ❌ No | ✅ Yes | ❌ No | Old consumers don't expect it to be required. New data always provides it. |
+| **Adding new enum value** | ❌ No | ✅ Yes | ❌ No | Old data uses existing values. New consumers handle new values. Old consumers reject unknown values. |
+| **Narrowing numeric type (number → int)** | ❌ No | ✅ Yes | ❌ No | New consumers accept integers only. Old data may contain floats. |
+| **Tightening constraints (e.g., decreasing max)** | ❌ No | ✅ Yes | ❌ No | New consumers enforce stricter rules. Old data may violate new constraints. |
+| **Adding new required property** | ❌ No | ❌ No | ❌ No | Breaking change: old data lacks the field, new consumers require it. |
+| **Removing required property** | ❌ No | ❌ No | ❌ No | Breaking change: old data has the field, new consumers don't expect it. |
+| **Renaming property** | ❌ No | ❌ No | ❌ No | Breaking change: equivalent to remove + add. |
+| **Changing property type (incompatible)** | ❌ No | ❌ No | ❌ No | Breaking change unless using union types. |
+
+
+### 4.4 GTS Versions Compatibility Examples
+
+This section demonstrates how different types of schema changes affect compatibility between minor versions of the same GTS type. We take as example Event Management system and typical events structure, however it can be used for any other data schemas in the system
+
+#### 4.4.1 Forward Compatibility Example
+
+**Use case**: Configuration schemas where old systems must tolerate new config options.
+
+**Schema v1.0** (`gts.x.core.db.connection_config.v1.0~`):
+```json
+{
+  "$id": "gts.x.core.db.connection_config.v1.0~",
+  "type": "object",
+  "required": ["host", "port", "database"],
+  "properties": {
+    "host": { "type": "string" },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "database": { "type": "string" },
+    "timeout": { "type": "integer", "minimum": 1, "default": 30 }
+  },
+  "additionalProperties": false
+}
+```
+
+**Schema v1.1** (adds required field):
+```json
+{
+  "$id": "gts.x.core.db.connection_config.v1.1~",
+  "type": "object",
+  "required": ["host", "port", "database", "timeout"],
+  "properties": {
+    "host": { "type": "string" },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "database": { "type": "string" },
+    "timeout": { "type": "integer", "minimum": 1 }
+  },
+  "additionalProperties": false
+}
+```
+
+**Compatibility analysis**:
+- ✅ **Forward**: v1.0 consumer can read v1.1 data (`timeout` is optional in v1.0 with default value)
+- ❌ **Backward**: v1.1 consumer **rejects** v1.0 data (missing required `timeout`)
+- ❌ **Full**: Not fully compatible
+
+**Deployment strategy**: Update config producers to always include `timeout`, then update consumers to v1.1.
+
+**Config examples**:
+```json
+// v1.0 config (rejected by v1.1 because timeout is now required)
+{"host": "db.example.com", "port": 5432, "database": "mydb"}
+
+// v1.1 config (valid for both schemas)
+{"host": "db.example.com", "port": 5432, "database": "mydb", "timeout": 60}
+```
+
+#### 4.4.2 Backward Compatibility Example (Closed Model)
+
+**Use case**: Event schemas where producers and consumers can be deployed independently.
+
+**Base event schema v1** (`gts.x.core.events.type.v1~`)
+```json
+{
+  "$id": "gts.x.core.events.type.v1~",
+  "type": "object",
+  "required": ["gtsId", "id", "timestamp"],
+  "properties": {
+    "gtsId": { "type": "string" },
+    "id": { "type": "string" },
+    "timestamp": { "type": "integer" },
+    "payload": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}
+```
+
+**Schema v1.0** (`gts.x.core.events.type.v1~x.api.users.create_request.v1.0~`):
+```json
+{
+  "$id": "gts.x.core.events.type.v1~x.api.users.create_request.v1.0~",
+  "type": "object",
+  "allOf": [
+    { "$ref": "gts.x.core.events.type.v1~" },
+    {
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": ["email", "name"],
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "name": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
+```
+
+**Schema v1.1** (adds optional field):
+```json
+{
+  "$id": "gts.x.core.events.type.v1~x.api.users.create_request.v1.1~",
+  "type": "object",
+  "allOf": [
+    { "$ref": "gts.x.core.events.type.v1~" },
+    {
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": ["email", "name"],
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "name": { "type": "string" },
+            "phoneNumber": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
+```
+
+**Compatibility analysis**:
+- ❌ **Forward**: v1.0 server **rejects** v1.1 requests (closed model with `additionalProperties: false` rejects unknown `phoneNumber`)
+- ✅ **Backward**: v1.1 server can process v1.0 requests (missing `phoneNumber` is optional)
+- ❌ **Full**: Not fully compatible
+
+**Deployment strategy**: Update servers to v1.1 first, then gradually update clients.
+
+**Request payload examples**:
+```json
+// v1.0 request payload (valid for both schemas)
+{"email": "user@example.com", "name": "John Doe"}
+
+// v1.1 request payload (rejected by v1.0 server due to additionalProperties: false)
+{"email": "user@example.com", "name": "John Doe", "phoneNumber": "+1234567890"}
+```
+
+#### 4.4.3 Full Compatibility Example (Open Model)
+
+**Schema v1.0** (`gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~`):
+```json
+{
+  "$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+  "type": "object",
+  "allOf": [
+    { "$ref": "gts.x.core.events.type.v1~" },
+    {
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": ["orderId", "customerId", "totalAmount"],
+          "properties": {
+            "orderId": { "type": "string" },
+            "customerId": { "type": "string" },
+            "totalAmount": { "type": "number" }
+          },
+          "additionalProperties": true
+        }
+      }
+    }
+  ]
+}
+```
+
+**Schema v1.1** (adds optional field):
+```json
+{
+  "$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~",
+  "type": "object",
+  "allOf": [
+    { "$ref": "gts.x.core.events.type.v1~" },
+    {
+      "properties": {
+        "payload": {
+          "type": "object",
+          "required": ["orderId", "customerId", "totalAmount"],
+          "properties": {
+            "orderId": { "type": "string" },
+            "customerId": { "type": "string" },
+            "totalAmount": { "type": "number" },
+            "currency": { "type": "string", "default": "USD" }
+          },
+          "additionalProperties": true
+        }
+      }
+    }
+  ]
+}
+```
+
+**Compatibility analysis**:
+- ✅ **Backward**: v1.1 consumers can read v1.0 data (missing `currency` field is handled via default)
+- ✅ **Forward**: v1.0 consumers can read v1.1 data (open model ignores unknown `currency` field)
+- ✅ **Full**: Fully compatible—deploy in any order
+
+**Event payload examples**:
+```json
+// v1.0 data (valid for both schemas)
+{"orderId": "123", "customerId": "456", "totalAmount": 99.99}
+
+// v1.1 data (valid for v1.1, readable by v1.0 due to open model)
+{"orderId": "123", "customerId": "456", "totalAmount": 99.99, "currency": "EUR"}
+```
+
+#### 4.4.4 Type Derivation vs Version Evolution
+
+**Important distinction**: Type derivation (chaining) is different from version evolution:
+
+```json
+// Base type (always compatible with derived types)
+"$id": "gts.x.core.events.type.v1~"
+
+// Derived type v1.0 (refines base type)
+"$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~"
+
+// Derived type v1.1 (minor version of the derived type)
+"$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~"
+```
+
+**Compatibility rules**:
+1. `order_placed.v1.0~` is **always fully compatible** with base `type.v1~` (derivation)
+2. `order_placed.v1.1~` is **always fully compatible** with base `type.v1~` (derivation)
+3. `order_placed.v1.1~` compatibility with `order_placed.v1.0~` depends on the changes made (version evolution—see examples above)
+
+See the [examples folder](./examples/events/schemas/) for complete schema definitions demonstrating these patterns.
+
+
+### 4.5 Best Practices for Schema Evolution
+
+To maximize compatibility and minimize breaking changes between the minor versions of the same GTS type, follow these recommendations:
+
+1. **Make new properties optional with defaults**: This is the safest way to add fields. Use `default` keyword in JSON Schema.
+
+2. **Never remove or rename required properties**: Always a breaking change. Increment MAJOR version instead.
+
+3. **Deprecate instead of removing**: Mark fields as deprecated in documentation. Keep them in the schema for at least one MAJOR version.
+
+4. **Avoid changing field types**: Type changes are almost always breaking. To evolve a type, use union types: `"type": ["string", "number"]`.
+
+5. **Use a schema registry**: Centralize schema management and enforce compatibility checks before allowing new versions to be published.
+
+
+## 5. Typical Use-cases
+
+### 5.1 Practical Benefits for Service and Platform Vendors
+
+Besides being a universal identifier, GTS provides concrete, production-ready capabilities that solve common architectural challenges for platform vendors and service providers integrating multiple third-party services under single control plane:
+
+#### Type Safety and Evolution
+- **Automated compatibility checking**: Validate schema changes against backward/forward/full compatibility rules before deployment (see section 4.3)
+- **Safe schema evolution**: Add optional fields to open models without breaking existing consumers or requiring coordinated deployments
+- **Version casting**: Automatically upcast/downcast data between minor versions (e.g., process v1.2 data with v1.0 consumer)
+- **Breaking change detection**: Prevent accidental breaking changes through automated validation in CI/CD pipelines
+
+#### Multi-Vendor Extensibility
+- **Plugin architectures**: Allow third-party vendors to extend platform base types while maintaining compatibility guarantees (see section 3.2)
+- **Hybrid storage**: Store common fields in indexed columns, vendor-specific extensions in JSONB—no schema migrations needed (see section 3.2 implementation pattern)
+- **Vendor isolation**: Use GTS chains to track data provenance and enforce vendors' data boundaries in shared databases
+- **Zero-downtime extensions**: Register new derived types without altering existing tables or restarting services
+
+#### Access Control and Security
+- **Wildcard-based policies**: Grant object access permissions using patterns like `gts.vendor.package.*` instead of maintaining explicit lists (see section 3.5)
+- **Attribute-based filtering**: Combine GTS identifiers with predicates for fine-grained access control (see section 3.3)
+- **Chain-aware authorization**: Restrict access to specific vendor extensions while allowing base type access
+- **Audit trails**: Log GTS identifiers for complete traceability of data access and schema usage
+
+#### Developer Experience
+- **Human-readable identifiers**: Debug issues by reading event types, config schemas, or API payloads directly from logs
+- **Self-documenting APIs**: GTS identifiers encode vendor, package, namespace, and version—no external documentation lookup needed
+- **Schema registries**: Build centralized catalogs where schemas are indexed by GTS identifiers for discovery and validation
+- **Deterministic UUIDs**: Generate stable UUID v5 from GTS identifiers for external systems requiring opaque IDs (see section 9.5)
+
+### 5.2 Example: Multi-Vendor Event Management Platform
 
 **Practical Scenario:**
 
@@ -392,7 +806,7 @@ First, let's define the base event schema for vendor `X` event manager:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.event.v1~",
+  "$id": "gts.x.core.events.type.v1~",
   "title": "Base Event",
   "type": "object",
   "properties": {
@@ -411,11 +825,11 @@ Now, let's define the audit event schema for vendor `X` event manager:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.event.v1~x.core.audit.event.v1~",
+  "$id": "gts.x.core.events.type.v1~x.core.audit.event.v1~",
   "title": "Audit Event, derived from Base Event",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.event.v1~" },
+    { "$ref": "gts.x.core.events.type.v1~" },
     {
       "type": "object",
       "properties": {
@@ -433,7 +847,7 @@ Now, let's define the audit event schema for vendor `X` event manager:
       },
       "required": ["payload"]
     }
-  ],
+  ]
 }
 ```
 
@@ -442,11 +856,11 @@ Then, let's define the schema of specific audit event registered by vendor `ABC`
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.event.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
+  "$id": "gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
   "title": "Vendor ABC Custom Purchase Audit Event from app APP",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.event.v1~x.core.audit.event.v1~" },
+    { "$ref": "gts.x.core.events.type.v1~x.core.audit.event.v1~" },
     {
       "type": "object",
       "properties": {
@@ -464,12 +878,12 @@ Then, let's define the schema of specific audit event registered by vendor `ABC`
               "required": ["purchase_id", "amount", "currency", "price"],
               "additionalProperties": false
             }
-          },
+          }
         }
       },
       "required": ["payload"]
     }
-  ],
+  ]
 }
 ```
 
@@ -477,7 +891,7 @@ Finally, when the producer (the application `APP` of vendor `ABC`) emits the eve
 
 ```json
 {
-  "gtsId": "gts.x.core.events.event.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
+  "gtsId": "gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
   "id": "e81307e5-5ee8-4c0a-8d1f-bd98a65c517e",
   "timestamp": 1743466200000000000,
   "payload": {
@@ -496,31 +910,47 @@ Finally, when the producer (the application `APP` of vendor `ABC`) emits the eve
 
 When the event manager receives the event it processes it as follows:
 
-1. **Schema Resolution**: Parse the `gtsId` to identify the full chain. The event manager can see that this instance conforms to `gts.x.core.events.event.v1~`, `...~x.core.audit.event.v1~`, and finally `...~abc.app.store.purchase_audit_event.v1.2~`.
+1. **Schema Resolution**: Parse the `gtsId` to identify the full chain. The event manager can see that this instance conforms to `gts.x.core.events.type.v1~`, `...~x.core.audit.event.v1~`, and finally `...~abc.app.store.purchase_audit_event.v1.2~`.
 
 2. **Validation**: Load the most specific JSON Schema (`...~abc.app.store.purchase_audit_event.v1.2~`) and validate the event object against it. It would automatically mean the event body is validated against any other schema in the chain (e.g., the base event and the base audit event).
 
-3. **Authorization**: Check if the producer is authorized to emit events matching the pattern `gts.x.core.audit.event.v1~x.core.audit.event.v1~abc.app.*` or a broader pattern like `gts.x.core.audit.event.v1~x.core.audit.event.v1~abc.app.*`.
+3. **Authorization**: Check if the producer is authorized to emit events matching the pattern `gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.*` or a broader pattern like `gts.x.core.events.type.v1~x.core.audit.event.v1~abc.*`.
 
 4. **Routing & Auditing**: Use the chain to route events to appropriate handlers or storage if needed.
 
 > **Note**: use the [GTS Kit](https://github.com/globaltypesystem/gts-kit) for visualization of the entities relationship and validation
 
+See some other definitions in the [examples folder](./examples/)
 
-## 5. Implementation-defined and Non-goals
+
+### 5.3 Schema Registry Requirement
+
+> **Critical implementation requirement:** The architectural guarantees of GTS—particularly type safety across inheritance chains and safe minor version evolution—depend entirely on a stateful **GTS Schema Registry** component. Production systems MUST implement or integrate a registry capable of:
+>
+> 1. **Storing and indexing** all registered GTS schemas by their type identifiers
+> 2. **Validating compatibility** of new schema versions against existing versions using the precise rules defined in section 4.3 before publication
+> 3. **Enforcing inheritance constraints** to ensure derived types remain compatible with their base types
+> 4. **Rejecting incompatible changes** that violate the declared compatibility mode (backward/forward/full)
+> 5. **Providing schema resolution** for validation, casting, and relationship resolution operations
+>
+> Without a registry performing rigorous schema diffing and compatibility validation, the type safety guarantees of GTS cannot be maintained. Implementations should treat the registry as a critical infrastructure component, similar to a database or message broker.
+
+
+## 6. Implementation-defined and Non-goals
 
 This specification intentionally does not enforce several operational or governance choices. It is up to the implementation vendor to define policies and behavior for:
 
-1. Whether a defined type is exported and available for cross-vendor use via APIs or an event bus.
+1. Whether a defined type is exported (published) and available for cross-vendor use via APIs or an event bus.
 2. Whether a given JSON/JSON Schema definition is mutable or immutable (e.g., handling an incompatible change without changing the minor or major version).
 3. How to implement access policies and access checks based on the GTS query and attribute access languages.
 4. When to introduce a new minor version versus a new major version.
 5. GTS identifiers renaming and aliasing
+6. Exact GTS identifier minor version compatibility rules enforcement (backward, forward, full)
 
 > **Non-goals reminder**: GTS is not an eventing framework, transport, or workflow. It standardizes identifiers and basic validation/casting semantics around JSON and JSON Schema.
 
 
-## 6. Comparison with other identifiers
+## 7. Comparison with other identifiers
 
 - JSONSchema $schema url: While JSONSchema provides a robust framework for defining the structure of JSON data, GTS extends this by offering clear vendor, package and namespace notation and chaining making it easier to track and validate data instances across different systems and versions.
 - UUID: Opaque and globally unique. GTS is meaningful to humans and machines; UUIDs can be derived from GTS deterministically when opaque IDs are required.
@@ -528,9 +958,9 @@ This specification intentionally does not enforce several operational or governa
 - Amazon ARN: Global and structured, but cloud-service-specific. GTS is vendor-neutral and domain-agnostic, focused on data schemas and instances.
 
 
-## 7. Parsing and Validation
+## 8. Parsing and Validation
 
-### 7.1 Single-segment regex (type or instance)
+### 8.1 Single-segment regex (type or instance)
 
 Single-chain variant:
 
@@ -555,7 +985,7 @@ gts\.
 
 `is_type` captures the optional trailing `~` (present for type IDs, absent for instance IDs).
 
-#### 7.2 Chained identifier regex
+### 8.2 Chained identifier regex
 
 For chained identifiers, the pattern enforces that all segments except the last are type IDs (with `~` separators):
 
@@ -579,607 +1009,30 @@ For chained identifiers, the pattern enforces that all segments except the last 
 - Validate that all segments except possibly the last are types
 
 
-## 8. Reference Operators (Python)
+## 9. Reference Implementation
 
-GTS implementations provide several core operations for working with identifiers:
+GTS provides reference implementations demonstrating the core operations for working with GTS identifiers. These operations include:
 
-- **OP#1 - ID Validation**: Verify identifier syntax using regex patterns
-- **OP#2 - ID Extraction**: Fetch identifiers from JSON objects or JSON Schema documents
+- **OP#1 - ID Validation**: Verify identifier syntax
+- **OP#2 - ID Extraction**: Extract identifiers from JSON objects or JSON Schema documents
 - **OP#3 - ID Parsing**: Decompose identifiers into constituent parts (vendor, package, namespace, type, version, etc.)
 - **OP#4 - ID Pattern Matching**: Match identifiers against patterns containing wildcards
 - **OP#5 - ID to UUID Mapping**: Generate deterministic UUIDs from GTS identifiers
 - **OP#6 - Schema Validation**: Validate object instances against their corresponding schemas
-- **OP#7 - Relationship Resolution**: Load all schemas and instances, resolve inter-dependencies, and detect broken references
+- **OP#7 - Relationship Resolution**: Load schemas and instances, resolve inter-dependencies, and detect broken references
 - **OP#8 - Compatibility Checking**: Verify that schemas with different MINOR versions are compatible
 - **OP#9 - Version Casting**: Transform instances between compatible MINOR versions
 - **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
 
-The following sections provide reference implementations in Python. Implementations in other languages should mirror these semantics and are maintained in dedicated repositories.
+For complete implementation details, refer to the official libraries:
 
-### 8.1 Normalize, validate, and parse
+- [gts-python](https://www.github.com/GlobalTypeSystem/gts-python)
+- [gts-go](https://www.github.com/GlobalTypeSystem/gts-go)
+- [gts-rust](https://www.github.com/GlobalTypeSystem/gts-rust)
 
-```python
-import re
-from dataclasses import dataclass
-from typing import Optional, List
 
-# Absolute first segment: includes the 'gts.' prefix
-ABSOLUTE_SEGMENT_PATTERN = re.compile(r"^gts\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(~)?$")
-
-# Relative chained segment: no 'gts.' prefix
-RELATIVE_SEGMENT_PATTERN = re.compile(r"^([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(~)?$")
-
-
-@dataclass(frozen=True)
-class GtsIdSegment:
-    vendor: str
-    package: str
-    namespace: str
-    type: str
-    major: int
-    minor: Optional[int]
-    is_type: bool  # True if ends with '~'
-
-    def short(self) -> str:
-        v = f"v{self.major}" + (f".{self.minor}" if self.minor is not None else "")
-        suffix = "~" if self.is_type else ""
-        return f"gts.{self.vendor}.{self.package}.{self.namespace}.{self.type}.{v}{suffix}"
-
-
-def parse_absolute(segment: str) -> GtsIdSegment:
-    m = ABSOLUTE_SEGMENT_PATTERN.fullmatch(segment)
-    if not m:
-        raise ValueError(f"Invalid absolute GTS segment: {segment}")
-    vendor, package, namespace, type_, major, minor, is_type = m.groups()
-    return GtsIdSegment(
-        vendor=vendor,
-        package=package,
-        namespace=namespace,
-        type=type_,
-        major=int(major),
-        minor=int(minor) if minor is not None else None,
-        is_type=is_type == "~",
-    )
-
-
-def parse_relative(segment: str) -> GtsIdSegment:
-    m = RELATIVE_SEGMENT_PATTERN.fullmatch(segment)
-    if not m:
-        raise ValueError(f"Invalid relative GTS segment: {segment}")
-    vendor, package, namespace, type_, major, minor, is_type = m.groups()
-    return GtsIdSegment(
-        vendor=vendor,
-        package=package,
-        namespace=namespace,
-        type=type_,
-        major=int(major),
-        minor=int(minor) if minor is not None else None,
-        is_type=is_type == "~",
-    )
-
-
-def parse_single(segment: str) -> GtsIdSegment:
-    """
-    Parse a single GTS segment (absolute or relative) into structured components.
-
-    Args:
-        segment: A GTS segment (e.g., 'gts.x.core.events.event.v1~' or 'x.app._.custom.v1.2')
-
-    Returns:
-        GtsIdSegment object with parsed vendor, package, namespace, type, version, and type flag
-
-    Raises:
-        ValueError: If the segment doesn't match either pattern
-    """
-    try:
-        return parse_absolute(segment)
-    except ValueError:
-        return parse_relative(segment)
-
-
-def split_chain(gts_id: str) -> List[GtsIdSegment]:
-    """
-    Parse a GTS identifier (single or chained) into a list of GtsIdSegment segments.
-
-    The first segment must be absolute (with 'gts.' prefix). Subsequent segments
-    are relative (without 'gts.'). All but the last segment MUST be types.
-
-    Args:
-        gts_id: Full GTS identifier (e.g., 'gts.x.base.v1~vendor.derived.v1.2')
-
-    Returns:
-        List of GtsIdSegment objects representing the chain
-
-    Raises:
-        ValueError: If the identifier is malformed or violates chaining rules
-    """
-    raw_parts = gts_id.split("~")
-    parts = [p for p in raw_parts if p != ""]
-    if not parts:
-        raise ValueError("Empty GTS identifier")
-
-    # First segment: absolute
-    segments: List[GtsIdSegment] = [parse_absolute(parts[0])]
-
-    # Remaining: relative
-    for p in parts[1:]:
-        segments.append(parse_relative(p))
-
-    # Enforce: all but last must be types
-    for seg in segments[:-1]:
-        if not seg.is_type:
-            raise ValueError("All segments except the last must be type identifiers (end with '~')")
-
-    # If there was a trailing '~' in the original, then the last should be a type
-    if gts_id.endswith("~") and not segments[-1].is_type:
-        raise ValueError("Identifier ends with '~' but last segment is not marked as type")
-
-    return segments
-```
-
-Validation helpers (OP#1)
-
-```python
-def is_valid_gts_segment(s: str) -> bool:
-    """Check if a single segment (absolute or relative) is syntactically valid."""
-    return bool(ABSOLUTE_SEGMENT_PATTERN.fullmatch(s) or RELATIVE_SEGMENT_PATTERN.fullmatch(s))
-
-
-def is_valid_gts_id(s: str) -> bool:
-    """Check if a full GTS identifier (single or chained) is valid by parsing it."""
-    try:
-        _ = split_chain(s)
-        return True
-    except Exception:
-        return False
-```
-
-### 8.2 Validate object against schema
-
-**Validation algorithm:**
-
-1. Parse the instance's `gtsId` to extract all segments in the chain
-2. Identify the rightmost **type** segment (the one immediately before the final instance segment, or the final segment if it ends with `~`)
-3. Load the JSON Schema associated with that type identifier
-4. Validate the object against the loaded schema
-5. Optionally, verify compatibility across the entire chain
-
-**Implementation notes:**
-- Store schemas indexed by their type identifiers (ending with `~`)
-- The instance identifier should match the schema's vendor, package, namespace, type, and MAJOR.MINOR version
-- For chained types, the final type in the chain is the most specific and should be used for validation
-
-```python
-from jsonschema import validate as js_validate
-
-class SchemaStore:
-    def __init__(self):
-        self._by_id = {}  # key: type-id (ending with ~), value: JSON Schema dict
-
-    def register(self, type_id: str, schema: dict) -> None:
-        if not type_id.endswith("~"):
-            raise ValueError("Schema type_id must end with '~'")
-        # sanity check
-        parse_single(type_id)
-        self._by_id[type_id] = schema
-
-    def get(self, type_id: str) -> dict:
-        return self._by_id[type_id]
-
-
-def rightmost_type_id(chain: List[GtsIdSegment]) -> str:
-    """
-    Extract the rightmost type ID from a GTS chain.
-
-    Rules:
-    - If the last segment is a type (ends with ~), return it
-    - If the last segment is an instance, return the previous segment (which must be a type)
-    - A standalone instance without a chain is invalid
-
-    Args:
-        chain: List of parsed GtsIdSegment segments
-
-    Returns:
-        The type identifier string (ending with ~)
-
-    Raises:
-        ValueError: If the chain doesn't contain a valid type for validation
-    """
-    if len(chain) == 1 and not chain[0].is_type:
-        raise ValueError("Standalone instances must include their type in a chain")
-    last = chain[-1]
-    if last.is_type:
-        return last.short()
-    # Last is instance, use second-to-last (which must be a type)
-    return chain[-2].short()
-
-
-def validate_instance(obj: dict, gts_id: str, store: SchemaStore) -> None:
-    chain = split_chain(gts_id)
-    type_id = rightmost_type_id(chain)
-    schema = store.get(type_id)
-    js_validate(instance=obj, schema=schema)
-```
-
-### 8.3 Minor version casting (downcast/upcast)
-
-**Casting between minor versions** allows transformation of objects between compatible schema versions.
-
-**Downcast (v1.3 → v1.2):** Remove properties that were added in newer minor versions
-- Use case: Send data to a consumer that only understands an older schema version
-- Safe operation: Only removes properties unknown to the target version
-
-**Upcast (v1.2 → v1.3):** Add default values for new optional properties
-- Use case: Normalize data to the latest schema version
-- Requires: Default values defined in the target schema for new fields
-
-**Note:** Both operations require access to both schema versions for accurate field mapping.
-
-```python
-def downcast(obj: dict, from_schema: dict, to_schema: dict) -> dict:
-    """
-    Downcast an object to an older minor version by removing unknown properties.
-
-    Args:
-        obj: The object to downcast
-        from_schema: The current (newer) schema
-        to_schema: The target (older) schema
-
-    Returns:
-        A new dict with only properties known to the target schema
-    """
-    allowed = set(to_schema.get("properties", {}).keys())
-    return {k: v for k, v in obj.items() if k in allowed}
-
-
-def upcast(obj: dict, from_schema: dict, to_schema: dict) -> dict:
-    """
-    Upcast an object to a newer minor version by adding default values.
-
-    Args:
-        obj: The object to upcast
-        from_schema: The current (older) schema
-        to_schema: The target (newer) schema
-
-    Returns:
-        A new dict with default values for new optional properties
-
-    Note:
-        If a new required property lacks a default, the result will fail validation.
-        This is intentional - it signals an incompatible schema change.
-    """
-    result = dict(obj)
-    props = to_schema.get("properties", {})
-    required = set(to_schema.get("required", []))
-    for k, v in props.items():
-        if k not in result:
-            if "default" in v:
-                result[k] = v["default"]
-            elif k in required:
-                # Cannot upcast without a value; leave as-is for validator to catch
-                pass
-    return result
-```
-
-### 8.4 Type compatibility across minor versions
-
-Basic check: required fields cannot be removed; properties should be a superset; types must not widen incompatibly.
-
-```python
-def is_minor_compatible(old_schema: dict, new_schema: dict) -> bool:
-    old_props = old_schema.get("properties", {})
-    new_props = new_schema.get("properties", {})
-    old_req = set(old_schema.get("required", []))
-    new_req = set(new_schema.get("required", []))
-
-    # required of old must be subset of required of new plus possibly optional
-    if not old_req.issubset(new_req.union(set())):
-        return False
-
-    # new props must include all old props
-    if not set(old_props.keys()).issubset(set(new_props.keys())):
-        return False
-
-    # primitive type check (very simplified)
-    for k in old_props.keys():
-        old_t = old_props[k].get("type")
-        new_t = new_props[k].get("type")
-        if old_t != new_t:
-            return False
-    return True
-```
-
-### 8.5 Mapping GTS to UUIDs
-
-**Use case:** Systems often need opaque, fixed-length identifiers for database keys, indexing, or external APIs while maintaining human-readable GTS identifiers for logs and debugging.
-
-**Approach:** Generate stable UUIDv5 values deterministically from GTS identifiers. Two scopes are supported:
-
-1. **Major-version UUID**: Same UUID for all minor versions within a major version (e.g., `v1.0`, `v1.1`, `v1.2` → same UUID)
-   - Use case: Join tables on major version, allowing minor version flexibility
-
-2. **Full-version UUID**: Unique UUID for each major.minor combination
-   - Use case: Precise version tracking in databases
-
-**Properties:**
-- Deterministic: Same GTS identifier always produces the same UUID
-- Collision-resistant: UUIDv5 uses cryptographic hashing
-- Reversible reference: Store GTS alongside UUID for human-readable lookups
-
-```python
-import uuid
-
-MAJOR_NS = uuid.uuid5(uuid.NAMESPACE_URL, "gts:major")
-FULL_NS = uuid.uuid5(uuid.NAMESPACE_URL, "gts:full")
-
-
-def _strip_minor(gts_id_segment: GtsIdSegment) -> GtsIdSegment:
-    return GtsIdSegment(
-        vendor=gts_id_segment.vendor,
-        package=gts_id_segment.package,
-        namespace=gts_id_segment.namespace,
-        type=gts_id_segment.type,
-        major=gts_id_segment.major,
-        minor=None,
-        is_type=gts_id_segment.is_type,
-    )
-
-
-def gts_uuid_major(gts_id: str) -> uuid.UUID:
-    parts = split_chain(gts_id)
-    # UUIDs are derived from the right-most element
-    g = parts[-1]
-    return uuid.uuid5(MAJOR_NS, _strip_minor(g).short())
-
-
-def gts_uuid_full(gts_id: str) -> uuid.UUID:
-    parts = split_chain(gts_id)
-    g = parts[-1]
-    return uuid.uuid5(FULL_NS, g.short())
-```
-
-### 8.6 GTS Query mini-language
-
-**Purpose:** Enable filtering and querying object collections based on GTS identifiers and attributes.
-
-**Syntax:** `<gts-type-prefix>[ <attribute>="<value>" <attribute>="<value>" ... ]`
-
-**Examples:**
-- `gts.x.core.events.event.v1.0` - Match all instances of this type (prefix match)
-- `gts.x.core.events.event.v1.0[ topic_id="gts.x.core.events.topic.v1.0~x.core.idp._.contacts.v1.0" ]` - Match events with specific `contacts` topic_id
-- `gts.x.core.events.event.v1[ status="active" priority="high" ]` - Multiple attribute filters
-
-**Matching rules:**
-1. GTS prefix match: The object's `gtsId` must start with the query's type prefix
-2. Attribute filters: All specified attributes must match exactly (string comparison)
-3. Attribute values are compared as strings (cast if needed)
-
-```python
-import shlex
-from typing import Iterable, Callable
-
-def parse_query(expr: str) -> tuple[str, dict]:
-    base, _, filt = expr.partition("[")
-    gts_base = base.strip()
-    conditions = {}
-    if filt:
-        filt = filt.rsplit("]", 1)[0]
-        # very simple tokenizer: key="value" pairs separated by spaces
-        tokens = shlex.split(filt)
-        for tok in tokens:
-            if "=" in tok:
-                k, v = tok.split("=", 1)
-                conditions[k.strip()] = v.strip().strip('"')
-    return gts_base, conditions
-
-
-def match_query(obj: dict, gts_field: str, expr: str) -> bool:
-    gts_base, cond = parse_query(expr)
-    # type prefix match
-    if not obj.get(gts_field, "").startswith(gts_base):
-        return False
-    for k, v in cond.items():
-        if str(obj.get(k)) != v:
-            return False
-    return True
-```
-
-### 8.7 Attribute Selector (`@`)
-
-**Purpose:** Access a specific attribute value from a GTS-identified instance using a simple path. An identifier with an attribute selector cannot be used as a type or instance identifier; it is only for data retrieval.
-
-**Syntax:** `<gts-identifier>@<attribute-path>`
-
-**Path Format:**
-- A dot-separated (`.`) path to a nested attribute.
-- The path always starts from the root of the instance.
-- Array elements can be accessed by their index.
-
-**Valid Examples:**
-- `gts.x.llm.chat.message.v1.0@id` - Get the value of the `id` field from the root of the message object.
-- `gts.x.llm.chat.message.v1.0@data.item` - Get the `item` property from the `data` object.
-- `gts.x.core.idp.user.v1@addresses.0.city` - Get the `city` from the first element in the `addresses` array.
-
-**Invalid Examples:**
-- `gts.x.llm.chat.message.v1.0~@id` - Cannot be used on a type identifier.
-- `gts.x.llm.chat.message.v1.0@` - Path cannot be empty.
-
-```python
-def split_at_path(gts_with_path: str) -> tuple[str, Optional[str]]:
-    if "@" not in gts_with_path:
-        return gts_with_path, None
-    gts, path = gts_with_path.split("@", 1)
-    if not path:
-        raise ValueError("Attribute path cannot be empty")
-    return gts, path
-
-
-def resolve_path(obj: object, path: str) -> object:
-    """
-    Resolve a dot-separated attribute path against an object.
-    """
-    parts = path.split('.')
-    cur = obj
-    for p in parts:
-        try:
-            if isinstance(cur, list):
-                idx = int(p)
-                cur = cur[idx]
-            elif isinstance(cur, dict):
-                cur = cur[p]
-            else:
-                raise KeyError(f"Cannot descend into {type(cur)} with segment '{p}'")
-        except (KeyError, IndexError, ValueError):
-            raise KeyError(f"Path segment '{p}' not found in path '{path}'")
-    return cur
-```
-
-### 8.8 Identifier extraction (instances and schemas)
-
-OP#2 extracts GTS identifiers from JSON instances and JSON Schema documents.
-
-```python
-from typing import Iterable, Set
-
-
-def _walk_json(o: object) -> Iterable[object]:
-    if isinstance(o, dict):
-        for v in o.values():
-            yield from _walk_json(v)
-    elif isinstance(o, list):
-        for v in o:
-            yield from _walk_json(v)
-    else:
-        yield o
-
-
-def extract_identifiers_from_instance(obj: dict, fields: tuple[str, ...] = ("gtsId", "$id")) -> Set[str]:
-    """Collect all strings in the object that look like valid GTS identifiers.
-
-    Heuristic: prefer known fields like 'gtsId' or '$id', but also scan all string values.
-    """
-    found: Set[str] = set()
-    # Preferred fields
-    for f in fields:
-        v = obj.get(f)
-        if isinstance(v, str) and is_valid_gts_id(v):
-            found.add(v)
-    # Fallback: scan all strings
-    for v in _walk_json(obj):
-        if isinstance(v, str) and is_valid_gts_id(v):
-            found.add(v)
-    return found
-
-
-def extract_identifiers_from_schema(schema: dict) -> Set[str]:
-    """Collect type identifiers from a JSON Schema: $id and any $ref values that are GTS strings."""
-    found: Set[str] = set()
-    # $id
-    sid = schema.get("$id")
-    if isinstance(sid, str) and is_valid_gts_id(sid):
-        found.add(sid)
-    # $ref occurrences
-    for v in _walk_json(schema):
-        if isinstance(v, dict) and "$ref" in v:
-            ref = v.get("$ref")
-            if isinstance(ref, str) and is_valid_gts_id(ref):
-                found.add(ref)
-        elif isinstance(v, str) and is_valid_gts_id(v):
-            # in case refs are represented as plain strings in arrays
-            found.add(v)
-    return found
-```
-
-### 8.9 Pattern matching (wildcards)
-
-OP#8 matches identifiers against greedy end-of-string wildcard patterns.
-
-```python
-def wildcard_match(pattern: str, candidate: str) -> bool:
-    """
-    Matches a candidate identifier against a greedy, end-of-string wildcard pattern.
-
-    Rules:
-    - Only one '*' is allowed
-    - '*' must be the last character
-    """
-    if '*' not in pattern:
-        return pattern == candidate
-
-    if pattern.count('*') > 1:
-        return False
-
-    if not pattern.endswith('*'):
-        return False
-
-    prefix = pattern[:-1]
-    return candidate.startswith(prefix)
-```
-
-### 8.10 Relationship resolution (schemas and refs)
-
-OP#5 loads schemas, resolves inter-dependencies via $ref, and detects broken references.
-
-```python
-from collections import defaultdict
-from typing import Dict, Set, Tuple, List
-
-
-def _extract_type_refs(schema: dict) -> Set[str]:
-    refs: Set[str] = set()
-    for v in _walk_json(schema):
-        if isinstance(v, dict) and "$ref" in v and isinstance(v["$ref"], str):
-            ref = v["$ref"]
-            if is_valid_gts_id(ref) and ref.endswith("~"):
-                refs.add(ref)
-    return refs
-
-
-def build_schema_graph(store: SchemaStore) -> Tuple[Dict[str, Set[str]], List[str]]:
-    """Return adjacency graph and list of missing referenced type IDs."""
-    graph: Dict[str, Set[str]] = {}
-    missing: Set[str] = set()
-    for type_id, schema in store._by_id.items():  # simple access for illustration
-        refs = _extract_type_refs(schema) - {type_id}
-        graph[type_id] = refs
-        for r in refs:
-            if r not in store._by_id:
-                missing.add(r)
-    return graph, sorted(missing)
-
-
-def detect_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
-    """Detect cycles in the dependency graph using DFS."""
-    cycles: List[List[str]] = []
-    temp: Set[str] = set()
-    perm: Set[str] = set()
-    stack: list[str] = []
-
-    def visit(n: str):
-        if n in perm:
-            return
-        if n in temp:
-            # cycle found
-            if n in stack:
-                i = stack.index(n)
-                cycles.append(stack[i:] + [n])
-            return
-        temp.add(n)
-        stack.append(n)
-        for m in graph.get(n, ()): visit(m)
-        stack.pop()
-        temp.remove(n)
-        perm.add(n)
-
-    for node in graph.keys():
-        if node not in perm:
-            visit(node)
-    return cycles
-```
-
-
-## 9. Collecting Identifiers with Wildcards
+## 10. Collecting Identifiers with Wildcards
 
 **Important:** An identifier containing a wildcard (`*`) is a **pattern for matching** and may not serve as a canonical identifier for a type or instance.
 
@@ -1239,7 +1092,7 @@ def wildcard_match(pattern: str, candidate: str) -> bool:
 ```
 
 
-## 10. JSON and JSON Schema Conventions
+## 11. JSON and JSON Schema Conventions
 
 It is advisable to include instance GTS identifiers in a top-level field, such as `gtsId`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
 
@@ -1258,12 +1111,12 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 
 ```json
 [{
-    "gtsId": "gts.x.core.events.event.v1~x.core.idp.events.v1~",
+    "gtsId": "gts.x.core.events.type.v1~x.core.idp.events.v1~",
     "id": "123",
     "payload": { "foo": "123", "bar": 42 }
 },
 {
-    "gtsId": "gts.x.core.events.event.v1~x.core.idp.events.v1~",
+    "gtsId": "gts.x.core.events.type.v1~x.core.idp.events.v1~",
     "id": "125",
     "payload": { "foo": "xyz", "bar": 123 }
 }]
@@ -1274,7 +1127,7 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.event.v1~",
+  "$id": "gts.x.core.events.type.v1~",
   "type": "object",
   "properties": {
     "gtsId": { "type": "string" },
@@ -1286,14 +1139,14 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 ```
 
 
-## 11. Notes and Best Practices
+## 12. Notes and Best Practices
 
 - Prefer chains where the base system type is first, followed by vendor-specific refinements, and finally the instance.
 - Favor additive changes in MINOR versions. Use a new MAJOR for breaking changes.
 - Keep types small and cohesive; use `namespace` to group related types within a package.
 
 
-## 12. Registered Vendors
+## 13. Registered Vendors
 
 The GTS specification does not require vendors to publish their types publicly, but we encourage them to submit their vendor codes to prevent future conflicts.
 
