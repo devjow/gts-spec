@@ -290,13 +290,13 @@ Predicates can reference plain literals or GTS-formatted values, e.g.:
 # filter all events that are published to the topic "some_topic" by the vendor "z"
 gts.x.core.events.event.v1.0[type_id="gts.x.core.events.topic.v1~z.app._.some_topic.v1"]
 # filter all user settings that were defined for users if type is z-vendor app_admin
-cti.x.core.acm.user_setting.v1[user_type="gts.x.core.acm.user.v1~z.app._.app_admin.v1"]
+gts.x.core.acm.user_setting.v1[user_type="gts.x.core.acm.user.v1~z.app._.app_admin.v1"]
 ```
 
 Multiple parameters are combined with logical AND to further restrict the result set:
 
 ```bash
-gts.x.y.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d" ]
+gts.x.z.z.type.v1[foo="bar", id="ef275d2b-9f21-4856-8c3b-5b5445dba17d"]
 ```
 
 ### 3.4 Attribute selector
