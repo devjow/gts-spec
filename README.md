@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.3
+> **VERSION**: GTS specification draft, version 0.4
 
 # Global Type System (GTS) Specification
 
@@ -80,11 +80,12 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 
 ## Document Version
 
-| Document Version | Status                                                                                        |
-|------------------|-----------------------------------------------------------------------------------------------|
-| 0.1              | Initial Draft, Request for Comments                                                           |
-| 0.2              | Semantics and Capabilities refined - access control notes, query language, attribute selector |
-| 0.3              | Version compatibility rules refined; more practical examples of usage; remove Python examples |
+| Version | Status                                                                                        |
+|---------|-----------------------------------------------------------------------------------------------|
+| 0.1     | Initial Draft, Request for Comments                                                           |
+| 0.2     | Semantics and Capabilities refined - access control notes, query language, attribute selector |
+| 0.3     | Version compatibility rules refined; more practical examples of usage; remove Python examples |
+| 0.4     | Clarify some corner cases - segment must not start with digit, uuid5, minor version semantic  |
 
 
 ## 1. Motivation
@@ -140,6 +141,8 @@ The `<package>` notation defines a module, plugin, or application provided by th
 The `<namespace>` specifies a category of GTS definitions within the package, and finally, the `<type>` defines the specific object type.
 
 Segments must be lowercase ASCII letters, digits, and underscores; they must start with a letter or underscore: `[a-z_][a-z0-9_]*`. The single underscore `_` is reserved as a placeholder and may only be used for the `<namespace>` segment.
+
+The `<vendor>`, `<package>`, `<namespace>`, and `<type>` segments must not start with a digit.
 
 Versioning uses semantic versioning constrained to major and optional minor: `v<MAJOR>[.<MINOR>]` where `<MAJOR>` and `<MINOR>` are non-negative integers, for example:
 - `gts.x.core.events.type.v1~` - defines a base event type in the system
@@ -424,6 +427,7 @@ The following guidance is provided for implementers building GTS-aware policy en
 - **Segment-wise prefixing**: The `*` wildcard can match any valid content of the target segment and its suffix hierarchy, enabling vendor/package/namespace/type grouping.
 - **Chain awareness**: Patterns may target the base segment, derived segments, or instance tail; evaluation should consider the entire chain when present.
 - **Attribute filters**: Optional `[name="value", ...]` predicates further constrain matches (e.g., only instances referencing a specific `screen_type`).
+- **Minor version semantics**: Patterns without minor versions (e.g., `gts.vendor.pkg.ns.type.v1~*`) match candidates with any minor version of that major version (e.g., `v1.0~`, `v1.1~`), since the minor version is optional and omitting it means "any minor version". See section 10 for detailed examples.
 
 **Evaluation guidelines:**
 - **Deny-over-allow (recommended)**: If your engine supports explicit denies, process them before allows to prevent privilege escalation.
@@ -784,7 +788,15 @@ Besides being a universal identifier, GTS provides concrete, production-ready ca
 - **Human-readable identifiers**: Debug issues by reading event types, config schemas, or API payloads directly from logs
 - **Self-documenting APIs**: GTS identifiers encode vendor, package, namespace, and version—no external documentation lookup needed
 - **Schema registries**: Build centralized catalogs where schemas are indexed by GTS identifiers for discovery and validation
-- **Deterministic UUIDs**: Generate stable UUID v5 from GTS identifiers for external systems requiring opaque IDs (see section 9.5)
+- **Deterministic UUIDs**: Generate stable UUID v5 from GTS identifiers for external systems requiring opaque IDs. The UUID5 namespace is ns:URL + 'gts':
+
+```python
+import uuid
+GTS_NS = uuid.uuid5(uuid.NAMESPACE_URL, "gts")
+print(uuid.uuid5(GTS_NS, "gts.x.core.events.type.v1~"))
+print(uuid.uuid5(GTS_NS, "gts.x.core.events.type.v1~abc.app._.custom_event.v1.2"))
+```
+
 
 ### 5.2 Example: Multi-Vendor Event Management Platform
 
@@ -1043,6 +1055,7 @@ A single wildcard (`*`) character can be used to find all identifiers matching a
 2. The wildcard must appear at the **end** of the pattern.
 3. The wildcard must not be used in combination with an attribute selector (`@`) or query (`[]`).
 4. The pattern must start at the beginning of a valid segment. For example, `gts.x.llm.chat.msg*` is invalid if `msg` is not a complete segment. `gts.x.llm.chat.message.v*` is valid because `v` is the start of the version segment.
+5. **Minor version semantics**: When a pattern specifies only a major version (e.g., `v0~*`), it matches candidates with any minor version of that major version (e.g., `v0.1~`, `v0.2~`, etc.). This is because the minor version is optional, and omitting it semantically means "any minor version".
 
 **Valid Examples:**
 
@@ -1060,36 +1073,42 @@ gts.x.llm.chat.message.v1.1~
 - **Pattern:** `gts.x.llm.chat.message.v*` - Find all schemas versions and their derived schemas
   - **Result:** All four identifiers listed above.
 
-**Invalid Examples:**
+- **Pattern:** `gts.x.llm.chat.message.v1~*` - Find all derived types from v1 (any minor version)
+  - **Result:** All four identifiers (matches both `v1.0~` and `v1.1~` because pattern without minor version matches any minor version)
+
+**Minor Version Matching Examples:**
+
+The following examples demonstrate the special case where patterns without minor versions match candidates with any minor version:
+
+```
+Pattern:   gts.vendor.pkg.ns.type.v0~*
+Candidate: gts.vendor.pkg.ns.type.v0.1~
+Result:    ✅ MATCH (pattern v0~ matches any v0.x)
+
+Pattern:   gts.vendor.pkg.ns.type.v0~*
+Candidate: gts.vendor.pkg.ns.type.v0~
+Result:    ✅ MATCH (exact match)
+
+Pattern:   gts.vendor.pkg.ns.type.v0.1~*
+Candidate: gts.vendor.pkg.ns.type.v0.1~
+Result:    ✅ MATCH (exact match with minor version)
+
+Pattern:   gts.vendor.pkg.ns.type.v0~abc.*
+Candidate: gts.vendor.pkg.ns.type.v0.1~
+Result:    ❌ NO MATCH (pattern v0~abc.* does not match any v0.x)
+
+Pattern:   gts.vendor.pkg.ns.type.v0.1~*
+Candidate: gts.vendor.pkg.ns.type.v0.2~
+Result:    ❌ NO MATCH (different minor versions)
+
+Pattern:   gts.vendor.pkg.ns.type.v0~*
+Candidate: gts.vendor.pkg.ns.type.v1.0~
+Result:    ❌ NO MATCH (different major versions)
+```
+
+**Invalid Pattern Examples:**
 - `gts.x.llm.chat.msg*` - Invalid if `msg` is not a complete segment.
 - `gts.x.llm.chat.message.v*~*` - Multiple wildcards are used.
-
-```python
-def wildcard_match(pattern: str, candidate: str) -> bool:
-    """
-    Matches a candidate identifier against a greedy, end-of-string wildcard pattern.
-
-    Args:
-        pattern: The wildcard pattern (e.g., 'gts.x.llm.chat.message.v*').
-        candidate: The GTS identifier to check.
-
-    Returns:
-        True if the candidate matches the pattern.
-    """
-    if '*' not in pattern:
-        return pattern == candidate
-
-    if pattern.count('*') > 1:
-        # Rule: Wildcard must be used only once.
-        return False
-
-    if not pattern.endswith('*'):
-        # Rule: Wildcard must be at the end.
-        return False
-
-    prefix = pattern[:-1]
-    return candidate.startswith(prefix)
-```
 
 
 ## 11. JSON and JSON Schema Conventions
