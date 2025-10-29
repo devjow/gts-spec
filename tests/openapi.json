@@ -244,10 +244,10 @@
         }
       }
     },
-    "/parse": {
+    "/parse-id": {
       "get": {
         "summary": "Parse GTS identifier",
-        "operationId": "parse_parse_get",
+        "operationId": "parse_parse_id_get",
         "parameters": [
           {
             "required": true,
@@ -266,7 +266,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Parse Parse Get"
+                  "title": "Response Parse Parse Id Get"
                 }
               }
             }
@@ -284,10 +284,10 @@
         }
       }
     },
-    "/wildcard-match": {
+    "/match-id-pattern": {
       "get": {
         "summary": "Match candidate against wildcard pattern",
-        "operationId": "wildcard_match_wildcard_match_get",
+        "operationId": "match_id_pattern_match_id_pattern_get",
         "parameters": [
           {
             "required": true,
@@ -315,7 +315,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Wildcard Match Wildcard Match Get"
+                  "title": "Response Match Id Pattern Match Id Pattern Get"
                 }
               }
             }
@@ -417,10 +417,10 @@
         }
       }
     },
-    "/schema-graph": {
+    "/resolve-relationships": {
       "get": {
         "summary": "Build schema/entity graph for a GTS ID",
-        "operationId": "schema_graph_schema_graph_get",
+        "operationId": "schema_graph_resolve_relationships_get",
         "parameters": [
           {
             "required": true,
@@ -438,7 +438,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "title": "Response Schema Graph Schema Graph Get"
+                  "title": "Response Schema Graph Resolve Relationships Get"
                 }
               }
             }
@@ -561,6 +561,18 @@
               "title": "Expr"
             },
             "name": "expr",
+            "in": "query"
+          },
+          {
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000.0,
+              "minimum": 1.0,
+              "title": "Limit",
+              "default": 100
+            },
+            "name": "limit",
             "in": "query"
           }
         ],

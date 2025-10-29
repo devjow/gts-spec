@@ -23,7 +23,7 @@ The tests are intentionally kept **alongside the specification** rather than in 
 While tests live with the specification, the actual server implementations are maintained in separate repositories:
 
 - [gts-python](https://github.com/globaltypesystem/gts-python) - Python implementation
-- [gts-go](https://github.com/globaltypesystem/gts-go) - Go implementation  
+- [gts-go](https://github.com/globaltypesystem/gts-go) - Go implementation
 - [gts-rust](https://github.com/globaltypesystem/gts-rust) - Rust implementation
 
 **Reasons for separation:**
@@ -78,12 +78,12 @@ pytest
 - [x] **OP#3 - ID Parsing**: Decompose identifiers into constituent parts (vendor, package, namespace, type, version, etc.)
 - [x] **OP#4 - ID Pattern Matching**: Match identifiers against patterns containing wildcards
 - [x] **OP#5 - ID to UUID Mapping**: Generate deterministic UUIDs from GTS identifiers
-- [ ] **OP#6 - Schema Validation**: Validate object instances against their corresponding schemas
-- [ ] **OP#7 - Relationship Resolution**: Load all schemas and instances, resolve inter-dependencies, and detect broken references
-- [ ] **OP#8 - Compatibility Checking**: Verify that schemas with different MINOR versions are compatible
-- [ ] **OP#8.1 - Backward compatibility checking**
-- [ ] **OP#8.2 - Forward compatibility checking**
-- [ ] **OP#8.3 - Full compatibility checking**
-- [ ] **OP#9 - Version Casting**: Transform instances between compatible MINOR versions
-- [ ] **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
-- [ ] **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
+- [x] **OP#6 - Schema Validation**: Validate object instances against their corresponding schemas
+- [x] **OP#7 - Relationship Resolution**: Load all schemas and instances, resolve inter-dependencies, and detect broken references
+- [x] **OP#8 - Compatibility Checking**: Verify that schemas with different MINOR versions are compatible
+- [x] **OP#8.1 - Backward compatibility checking**
+- [x] **OP#8.2 - Forward compatibility checking**
+- [x] **OP#8.3 - Full compatibility checking**
+- [x] **OP#9 - Version Casting**: Transform instances between compatible MINOR versions
+- [x] **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
+- [x] **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)

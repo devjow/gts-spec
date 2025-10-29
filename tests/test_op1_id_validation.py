@@ -4,28 +4,32 @@ from httprunner import HttpRunner, Config, Step, RunRequest, Parameters
 
 
 class TestCaseTestOp1IdValidationAllValid(HttpRunner):
-    config = Config("OP#1 - Validate ID (all valid cases)").base_url(get_gts_base_url())
+    config = Config(
+        "OP#1 - Validate ID (all valid cases)"
+    ).base_url(
+        get_gts_base_url()
+    )
 
     @pytest.mark.parametrize(
         "param",
         Parameters(
             {
                 "id": [
-                    "gts.x.core.events.type.v1~",
-                    "gts.x.core.objects_registry.object_a.v1.0",
+                    "gts.x.test1.events.type.v1~",
+                    "gts.x.test1.objects_registry.object_a.v1.0",
                     "gts.abc.commerce.orders.order.v2.15~",
                     "gts.vendor.pkg.ns.type.v0~",
                     "gts.v123.p456.n789.t000.v999.888~",
                     "gts.x.pkg._.type.v1~",
                     "gts.myvendor.mypackage.mynamespace.mytype.v1.0~",
-                    "gts.x.core.events.type.v1~abc.app._.custom_event.v1~",
-                    "gts.x.core.events.type.v1~abc.app._.custom_event.v1.2",
+                    "gts.x.test1.events.type.v1~abc.app._.custom_event.v1~",
+                    "gts.x.test1.events.type.v1~abc.app._.custom_event.v1.2",
                     "gts.a.b.c.d.v1~e.f.g.h.v2~i.j.k.l.v3~",
                     "gts.vendor_name.pkg_123.ns_abc.type_xyz.v10.5~",
-                    "gts.x.core.api.endpoint.v0.1",
+                    "gts.x.test1.api.endpoint.v0.1",
                     "gts.a1.b2.c3.d4.v100.200~",
                     (
-                        "gts.x.core.events.type.v1~vendor.app."
+                        "gts.x.test1.events.type.v1~vendor.app."
                         "derived.event.v2~"
                         "vendor.app._.event.v2.0"
                     ),
@@ -35,7 +39,7 @@ class TestCaseTestOp1IdValidationAllValid(HttpRunner):
                     ),
                     "gts._a.b2.c3._d4.v1~",
                     (
-                        "gts.x.core.events.type.v1~a.b.c.d.v1~"
+                        "gts.x.test1.events.type.v1~a.b.c.d.v1~"
                         "e.f.g.h.v1~i.j.k.l.v1.0"
                     ),
                     "gts.v.v.v.v.v1~",
@@ -64,34 +68,38 @@ class TestCaseTestOp1IdValidationAllValid(HttpRunner):
 
 
 class TestCaseTestOp1IdValidationInvalid(HttpRunner):
-    config = Config("OP#1 - Validate ID (all invalid cases)").base_url(get_gts_base_url())
+    config = Config(
+        "OP#1 - Validate ID (all invalid cases)"
+    ).base_url(
+        get_gts_base_url()
+    )
 
     @pytest.mark.parametrize(
         "param",
         Parameters(
             {
                 "id": [
-                    "GTS.x.core.events.type.v1~",
+                    "GTS.x.test1.events.type.v1~",
                     "gts.X.core.events.type.v1~",
-                    "gts.x.core.events.type.V1~",
-                    "x.core.events.type.v1~",
-                    "gts.x.core.events.type.1~",
-                    "gts.x.core.events.type.v1.2.3~",
-                    "gts.x.core.events.type.v-1~",
-                    "gts.x.core.events.type.v1.~",
-                    "gts.x.core.events.type.v01~",
-                    "gts.x.core.events.type.v1.01~",
+                    "gts.x.test1.events.type.V1~",
+                    "x.test1.events.type.v1~",
+                    "gts.x.test1.events.type.1~",
+                    "gts.x.test1.events.type.v1.2.3~",
+                    "gts.x.test1.events.type.v-1~",
+                    "gts.x.test1.events.type.v1.~",
+                    "gts.x.test1.events.type.v01~",
+                    "gts.x.test1.events.type.v1.01~",
                     "gts.x.mq.messages._._.v1",
                     "gts.1vendor.core.events.type.v1~",
                     "gts.x.core-events.events.type.v1~",
-                    "gts.x.core.events..event.v1~",
-                    "gts.x.core.events.type.v1.0~~",
-                    "gts.x.core.events.type.v1~gts.abc.app._.custom.v1~",
-                    "gts.x.core.events.type.v1.abc.app.namespace.custom.v1",
-                    "gts.x.core.events.event~",
-                    "gts.x.core.events.v1~",
-                    "gts.x.core.namespace.type.v1~a.b.c.v1",
-                    "gts.x.core.events.type.v1.0.0~",
+                    "gts.x.test1.events..event.v1~",
+                    "gts.x.test1.events.type.v1.0~~",
+                    "gts.x.test1.events.type.v1~gts.abc.app._.custom.v1~",
+                    "gts.x.test1.events.type.v1.abc.app.namespace.custom.v1",
+                    "gts.x.test1.events.event~",
+                    "gts.x.test1.events.v1~",
+                    "gts.x.test1.namespace.type.v1~a.b.c.v1",
+                    "gts.x.test1.events.type.v1.0.0~",
                 ]
             }
         ),
@@ -113,5 +121,201 @@ class TestCaseTestOp1IdValidationInvalid(HttpRunner):
     ]
 
 
-if __name__ == "__main__":
-    TestCaseTestOp1Validation().test_start()
+class TestCaseTestOp1IdValidation_MaxLengthSegments(HttpRunner):
+    """OP#1 Extended - IDs with maximum length segments"""
+    config = Config(
+        "OP#1 Extended - Max Length Segments"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    "gts.verylongvendorname123456789.pkg.ns.type.v1~",
+                    "gts.x.verylongpackagename123456789.ns.type.v1~",
+                    "gts.x.pkg.verylongnamespacename123456789.type.v1~",
+                    "gts.x.pkg.ns.verylongtypename123456789.v1~",
+                    (
+                        "gts.vendor_with_many_underscores_123."
+                        "package_with_many_underscores_456."
+                        "namespace_with_many_underscores_789."
+                        "type_with_many_underscores_000.v1~"
+                    ),
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate max length segments")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.valid", True)
+        ),
+    ]
+
+
+class TestCaseTestOp1IdValidation_VersionEdgeCases(HttpRunner):
+    """OP#1 Extended - Version number edge cases"""
+    config = Config(
+        "OP#1 Extended - Version Edge Cases"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    "gts.x.pkg.ns.type.v999999~",
+                    "gts.x.pkg.ns.type.v1.999999~",
+                    "gts.x.pkg.ns.type.v0.0~",
+                    "gts.x.pkg.ns.type.v0.1~",
+                    "gts.x.pkg.ns.type.v0",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate version edge cases")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.valid", True)
+        ),
+    ]
+
+
+class TestCaseTestOp1IdValidation_UnderscorePlaceholder(HttpRunner):
+    """OP#1 Extended - Underscore placeholder usage"""
+    config = Config(
+        "OP#1 Extended - Underscore Placeholder"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    "gts.vendor.pkg._.type.v1~",
+                    "gts._.pkg.ns.type.v1~",
+                    "gts.vendor._.ns.type.v1~",
+                    "gts.vendor.pkg.ns._.v1~",
+                    "gts.vendor_name.pkg_name.ns_name.type_name.v1~",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate underscore usage")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.valid", True)
+        ),
+    ]
+
+
+class TestCaseTestOp1IdValidation_InvalidVersionFormats(HttpRunner):
+    """OP#1 Extended - Invalid version formats"""
+    config = Config(
+        "OP#1 Extended - Invalid Version Formats"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    "gts.x.pkg.ns.type.v01~",
+                    "gts.x.pkg.ns.type.v1.01~",
+                    "gts.x.pkg.ns.type.v001.001~",
+                    "gts.x.pkg.ns.type.v-1~",
+                    "gts.x.pkg.ns.type.v1.-1~",
+                    "gts.x.pkg.ns.type.v1.2.3~",
+                    "gts.x.pkg.ns.type.~",
+                    "gts.x.pkg.ns.type.V1~",
+                    "gts.x.pkg.ns.type.version1~",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate invalid version formats")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.valid", False)
+        ),
+    ]
+
+
+class TestCaseTestOp1IdValidation_InvalidSegmentFormats(HttpRunner):
+    """OP#1 Extended - Invalid segment formats"""
+    config = Config(
+        "OP#1 Extended - Invalid Segment Formats"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    "gts.1vendor.pkg.ns.type.v1~",
+                    "gts.vendor.2pkg.ns.type.v1~",
+                    "gts.vendor.pkg.3ns.type.v1~",
+                    "gts.vendor.pkg.ns.4type.v1~",
+                    "gts.vendor-name.pkg.ns.type.v1~",
+                    "gts.vendor.pkg.name.space.type.v1~",
+                    "gts.vendor.pkg.ns.type@name.v1~",
+                    "gts..pkg.ns.type.v1~",
+                    "gts.vendor..ns.type.v1~",
+                    "gts.Vendor.pkg.ns.type.v1~",
+                    "gts.vendor.Pkg.ns.type.v1~",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate invalid segment formats")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.valid", False)
+        ),
+    ]

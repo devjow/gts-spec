@@ -21,7 +21,7 @@
             "customerId": { "type": "string", "format": "uuid" },
             "totalAmount": { "type": "number" },
             "items": { "type": "array", "items": { "type": "object" } },
-            "new_field_in_v1_1": { "type": "string", "default": "" }
+            "new_field_in_v1_1": { "type": "string", "default": "some_value" },
           }
         },
         "subjectType": {
