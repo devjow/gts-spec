@@ -75,7 +75,8 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 - [10. Collecting Identifiers with Wildcards](#10-collecting-identifiers-with-wildcards)
 - [11. JSON and JSON Schema Conventions](#11-json-and-json-schema-conventions)
 - [12. Notes and Best Practices](#12-notes-and-best-practices)
-- [13. Registered Vendors](#13-registered-vendors)
+- [13. Testing](#13-testing)
+- [14. Registered Vendors](#14-registered-vendors)
 
 
 ## Document Version
@@ -85,7 +86,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.1     | Initial Draft, Request for Comments                                                           |
 | 0.2     | Semantics and Capabilities refined - access control notes, query language, attribute selector |
 | 0.3     | Version compatibility rules refined; more practical examples of usage; remove Python examples |
-| 0.4     | Clarify some corner cases - segment must not start with digit, uuid5, minor version semantic  |
+| 0.4     | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic  |
 
 
 ## 1. Motivation
@@ -142,7 +143,7 @@ The `<namespace>` specifies a category of GTS definitions within the package, an
 
 Segments must be lowercase ASCII letters, digits, and underscores; they must start with a letter or underscore: `[a-z_][a-z0-9_]*`. The single underscore `_` is reserved as a placeholder and may only be used for the `<namespace>` segment.
 
-The `<vendor>`, `<package>`, `<namespace>`, and `<type>` segments must not start with a digit.
+The `<vendor>`, `<package>`, `<namespace>`, and `<type>` segment tokens must not start with a digit.
 
 Versioning uses semantic versioning constrained to major and optional minor: `v<MAJOR>[.<MINOR>]` where `<MAJOR>` and `<MINOR>` are non-negative integers, for example:
 - `gts.x.core.events.type.v1~` - defines a base event type in the system
@@ -1165,7 +1166,12 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 - Keep types small and cohesive; use `namespace` to group related types within a package.
 
 
-## 13. Registered Vendors
+## 13. Testing
+
+See [tests/README.md](tests/README.md)
+
+
+## 14. Registered Vendors
 
 The GTS specification does not require vendors to publish their types publicly, but we encourage them to submit their vendor codes to prevent future conflicts.
 
