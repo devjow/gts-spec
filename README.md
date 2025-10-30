@@ -723,6 +723,57 @@ This section demonstrates how different types of schema changes affect compatibi
 {"orderId": "123", "customerId": "456", "totalAmount": 99.99, "currency": "EUR"}
 ```
 
+> **Note**: Changes to referenced GTS identifier values do not affect full compatibility. For example, the following two schemas are treated as fully compatible even though they reference different const values:
+
+```jsonc
+{
+  "$id": (
+      "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~"
+  ),
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "allOf": [
+      {"$$ref": "gts.x.core.events.type.v1~"},
+      {
+          "type": "object",
+          "required": ["type", "payload"],
+          "properties": {
+              "type": {
+                  "const": (
+                      "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~"
+                  )
+              },
+          }
+      }
+  ]
+}
+```
+
+```jsonc
+{
+  "$id": (
+      "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.2~"
+  ),
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "allOf": [
+      {"$$ref": "gts.x.core.events.type.v1~"},
+      {
+          "type": "object",
+          "required": ["type", "payload"],
+          "properties": {
+              "type": {
+                  "const": (
+                      "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.2~" // GTS ID changed to v1.2
+                  )
+              },
+          }
+      }
+  ]
+}
+```
+
+
 #### 4.4.4 Type Derivation vs Version Evolution
 
 **Important distinction**: Type derivation (chaining) is different from version evolution:
