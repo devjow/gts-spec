@@ -1,8 +1,6 @@
 [
   {
-    "type": "gts.x.core.mcp.tools.v1.0~x.core.mcp.fetch.v1.0~",
-    "id": "f5834f82-5e55-4793-a95f-56649a1b8e0c",
-    "name": "fetch",
+    "id": "gts.x.core.mcp.tools.v1.0~x.core.http.get.v1.0",
     "description": "Fetches a URL from the internet and optionally extracts its contents as markdown.\n\nAlthough originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.",
     "inputSchema": {
       "type": "object",

@@ -5,8 +5,6 @@
   "type": "object",
   "description": "Base MCP tool definition following Model Context Protocol specification",
   "required": [
-    "type",
-    "name",
     "description",
     "inputSchema"
   ],
