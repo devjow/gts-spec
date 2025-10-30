@@ -14,13 +14,13 @@ class TestCaseTestOp2IdExtraction_Case1(HttpRunner):
             RunRequest("extract id (case 1)")
             .post("/extract-id")
             .with_json({
-                "id": "gts.x.core.api.endpoint.v0.1",
-                "schema": "gts.x.core.api.endpoint.v0~",
+                "id": "gts.x.test2.api.endpoint.v0.1",
+                "schema": "gts.x.test2.api.endpoint.v0~",
             })
             .validate()
             .assert_equal("status_code", 200)
-            .assert_equal("body.id", "gts.x.core.api.endpoint.v0.1")
-            .assert_equal("body.schema_id", "gts.x.core.api.endpoint.v0~")
+            .assert_equal("body.id", "gts.x.test2.api.endpoint.v0.1")
+            .assert_equal("body.schema_id", "gts.x.test2.api.endpoint.v0~")
             .assert_equal("body.selected_entity_field", "id")
             .assert_equal("body.selected_schema_id_field", "schema")
             .assert_equal("body.is_schema", False)
@@ -40,7 +40,7 @@ class TestCaseTestOp2IdExtraction_Case2(HttpRunner):
             .post("/extract-id")
             .with_json({
                 "gtsId": (
-                    "gts.x.core.events.type.v1~abc.app._."
+                    "gts.x.test2.events.type.v1~abc.app._."
                     "custom_event.v1.2"
                 )
             })
@@ -48,9 +48,9 @@ class TestCaseTestOp2IdExtraction_Case2(HttpRunner):
             .assert_equal("status_code", 200)
             .assert_equal(
                 "body.id",
-                "gts.x.core.events.type.v1~abc.app._.custom_event.v1.2",
+                "gts.x.test2.events.type.v1~abc.app._.custom_event.v1.2",
             )
-            .assert_equal("body.schema_id", "gts.x.core.events.type.v1~")
+            .assert_equal("body.schema_id", "gts.x.test2.events.type.v1~")
             .assert_equal("body.selected_entity_field", "gtsId")
             .assert_equal("body.selected_schema_id_field", "gtsId")
             .assert_equal("body.is_schema", False)
@@ -91,13 +91,13 @@ class TestCaseTestOp2IdExtraction_Case4(HttpRunner):
             RunRequest("extract id (case 4)")
             .post("/extract-id")
             .with_json({
-                "gts_id": "gts.x.core.objects_registry.object_a.v1.0",
+                "gts_id": "gts.x.test2.objects_registry.object_a.v1.0",
                 "schema": "https://json-schema.org/draft/2020-12/schema",
             })
             .validate()
             .assert_equal("status_code", 200)
             .assert_equal(
-                "body.id", "gts.x.core.objects_registry.object_a.v1.0"
+                "body.id", "gts.x.test2.objects_registry.object_a.v1.0"
             )
             .assert_equal(
                 "body.schema_id",
