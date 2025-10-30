@@ -1107,7 +1107,7 @@ A single wildcard (`*`) character can be used to find all identifiers matching a
 2. The wildcard must appear at the **end** of the pattern.
 3. The wildcard must not be used in combination with an attribute selector (`@`) or query (`[]`).
 4. The pattern must start at the beginning of a valid segment. For example, `gts.x.llm.chat.msg*` is invalid if `msg` is not a complete segment. `gts.x.llm.chat.message.v*` is valid because `v` is the start of the version segment.
-5. **Minor version semantics**: When a pattern specifies only a major version (e.g., `v0~*`), it matches candidates with any minor version of that major version (e.g., `v0.1~`, `v0.2~`, etc.). This is because the minor version is optional, and omitting it semantically means "any minor version".
+5. **Minor version semantics**: When a pattern specifies only a major version (e.g., `v0.*`), it matches candidates with any minor version of that major version (e.g., `v0.1~`, `v0.2~`, etc.). This is because the minor version is optional, and omitting it semantically means "any minor version".
 
 **Valid Examples:**
 
@@ -1115,18 +1115,22 @@ Given the following identifiers:
 ```
 gts.x.llm.chat.message.v1.0~
 gts.x.llm.chat.message.v1.0~x.llm.system_message.v1.0~
-gts.x.llm.chat.message.v1.0~x.llm.user_message.v1.1~
 gts.x.llm.chat.message.v1.1~
+gts.x.llm.chat.message.v1.1~x.llm.user_message.v1.1~
 ```
 
-- **Pattern:** `gts.x.llm.chat.message.v1.0~*` - Find all derived types (schemas) down the chain
-  - **Result:** `gts.x.llm.chat.message.v1.0~x.llm.system_message.v1.0~`, `gts.x.llm.chat.message.v1.0~x.llm.user_message.v1.1~`
-
-- **Pattern:** `gts.x.llm.chat.message.v*` - Find all schemas versions and their derived schemas
+- **Pattern:** `gts.x.llm.chat.message.*` - Find all base schemas versions and their derived schemas
   - **Result:** All four identifiers listed above.
 
-- **Pattern:** `gts.x.llm.chat.message.v1~*` - Find all derived types from v1 (any minor version)
+- **Pattern:** `gts.x.llm.chat.message.v1.*` - Find all base and deriver types from v1 (any minor version)
   - **Result:** All four identifiers (matches both `v1.0~` and `v1.1~` because pattern without minor version matches any minor version)
+
+- **Pattern:** `gts.x.llm.chat.message.v1~*` - Find all derived types from v1 (any minor version)
+  - **Result:** two derived entities: `gts.x.llm.chat.message.v1.0~x.llm.system_message.v1.0~`, `gts.x.llm.chat.message.v1.1~x.llm.user_message.v1.1~`
+
+- **Pattern:** `gts.x.llm.chat.message.v1.0~*` - Find all derived types (schemas) down the chain
+  - **Result:** Only one matching entity: `gts.x.llm.chat.message.v1.0~x.llm.system_message.v1.0~`
+
 
 **Minor Version Matching Examples:**
 
