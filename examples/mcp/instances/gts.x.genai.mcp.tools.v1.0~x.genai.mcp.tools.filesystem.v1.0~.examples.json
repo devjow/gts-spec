@@ -1,6 +1,6 @@
 [
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.read_text_file.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.read_text_file.v1.0",
     "description": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -19,10 +19,34 @@
         }
       },
       "required": ["path"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "The text content of the file"
+        }
+      },
+      "required": ["content"]
+    },
+    "errorSchema": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message describing what went wrong"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code (e.g., 'FILE_NOT_FOUND', 'PERMISSION_DENIED', 'NOT_IN_ALLOWED_DIRECTORY')"
+        }
+      },
+      "required": ["error"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.read_media_file.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.read_media_file.v1.0",
     "description": "Read an image or audio file. Returns the base64 encoded data and MIME type. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -33,10 +57,38 @@
         }
       },
       "required": ["path"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "description": "Base64 encoded media data"
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the media file"
+        }
+      },
+      "required": ["data", "mimeType"]
+    },
+    "errorSchema": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message describing what went wrong"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code (e.g., 'FILE_NOT_FOUND', 'UNSUPPORTED_FORMAT')"
+        }
+      },
+      "required": ["error"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.read_multiple_files.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.read_multiple_files.v1.0",
     "description": "Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file's content is returned with its path as a reference. Failed reads for individual files won't stop the entire operation. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -51,10 +103,38 @@
         }
       },
       "required": ["paths"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file"
+              },
+              "content": {
+                "type": "string",
+                "description": "Content of the file"
+              },
+              "error": {
+                "type": "string",
+                "description": "Error message if file could not be read"
+              }
+            },
+            "required": ["path"]
+          },
+          "description": "Array of file results, each containing path and either content or error"
+        }
+      },
+      "required": ["files"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.write_file.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.write_file.v1.0",
     "description": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -72,7 +152,7 @@
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.edit_file.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.edit_file.v1.0",
     "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -106,10 +186,34 @@
         }
       },
       "required": ["path", "edits"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "diff": {
+          "type": "string",
+          "description": "Git-style diff showing the changes made"
+        }
+      },
+      "required": ["diff"]
+    },
+    "errorSchema": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message describing what went wrong"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code (e.g., 'FILE_NOT_FOUND', 'TEXT_NOT_FOUND')"
+        }
+      },
+      "required": ["error"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.create_directory.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.create_directory.v1.0",
     "description": "Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -123,7 +227,7 @@
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.list_directory.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.list_directory.v1.0",
     "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -134,10 +238,49 @@
         }
       },
       "required": ["path"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the file or directory"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["file", "directory"],
+                "description": "Type of the entry"
+              }
+            },
+            "required": ["name", "type"]
+          },
+          "description": "Array of directory entries"
+        }
+      },
+      "required": ["entries"]
+    },
+    "errorSchema": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message describing what went wrong"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code (e.g., 'DIRECTORY_NOT_FOUND', 'PERMISSION_DENIED')"
+        }
+      },
+      "required": ["error"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.list_directory_with_sizes.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.list_directory_with_sizes.v1.0",
     "description": "Get a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -157,7 +300,7 @@
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.directory_tree.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.directory_tree.v1.0",
     "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -176,10 +319,50 @@
         }
       },
       "required": ["path"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "tree": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the root directory"
+            },
+            "type": {
+              "type": "string",
+              "enum": ["directory"],
+              "description": "Type of the root entry"
+            },
+            "children": {
+              "type": "array",
+              "description": "Recursive array of child entries"
+            }
+          },
+          "required": ["name", "type", "children"],
+          "description": "Recursive tree structure of the directory"
+        }
+      },
+      "required": ["tree"]
+    },
+    "errorSchema": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message describing what went wrong"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code (e.g., 'DIRECTORY_NOT_FOUND')"
+        }
+      },
+      "required": ["error"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.move_file.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.move_file.v1.0",
     "description": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -197,7 +380,7 @@
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.search_files.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.search_files.v1.0",
     "description": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -220,10 +403,37 @@
         }
       },
       "required": ["path", "pattern"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "matches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of full paths to matching files and directories"
+        }
+      },
+      "required": ["matches"]
+    },
+    "errorSchema": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message describing what went wrong"
+        },
+        "code": {
+          "type": "string",
+          "description": "Error code (e.g., 'DIRECTORY_NOT_FOUND', 'INVALID_PATTERN')"
+        }
+      },
+      "required": ["error"]
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.get_file_info.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.get_file_info.v1.0",
     "description": "Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, and type. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories.",
     "inputSchema": {
       "type": "object",
@@ -237,7 +447,7 @@
     }
   },
   {
-    "id": "gts.x.core.mcp.tools.v1.0~x.core.fs.list_allowed_directories.v1.0",
+    "id": "gts.x.genai.mcp.tools.v1.0~x.genai.fs.list_allowed_directories.v1.0",
     "description": "Returns the list of directories that this server is allowed to access. Subdirectories within these allowed directories are also accessible. Use this to understand which directories and their nested paths are available before trying to access files.",
     "inputSchema": {
       "type": "object",
