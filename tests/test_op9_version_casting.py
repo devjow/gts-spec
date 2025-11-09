@@ -398,16 +398,66 @@ class TestCaseTestOp9Cast_IncompatibleMajorVersion(HttpRunner):
             .validate()
             .assert_equal("status_code", 200)
         ),
-        # Attempt cast from v1.0 to v2.0 (should fail)
+    ]
+
+
+class TestCaseTestOp9Cast_SchemaToSchemaNotAllowed(HttpRunner):
+    """OP#9 - Version Casting: Fail when attempting to cast from schema to schema"""
+    config = Config("OP#9 - Cast (schema to schema not allowed)").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register v1.0 schema
         Step(
-            RunRequest("cast from v1.0 to v2.0 should fail")
-            .post("/cast")
+            RunRequest("register v1.0 schema")
+            .post("/entities")
             .with_json({
-                "instance_id": "gts.x.test9.version.type.v1.0~",
-                "to_schema_id": "gts.x.test9.version.type.v2.0~"
+                "$$id": "gts.x.test9.schema2schema.type.v1.0~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"}
+                }
             })
             .validate()
             .assert_equal("status_code", 200)
+        ),
+        # Register v1.1 schema
+        Step(
+            RunRequest("register v1.1 schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts.x.test9.schema2schema.type.v1.1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "newField": {
+                        "type": "string",
+                        "default": "default_value"
+                    }
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Attempt cast from schema to schema (should fail)
+        Step(
+            RunRequest("cast from schema to schema should fail")
+            .post("/cast")
+            .with_json({
+                "instance_id": "gts.x.test9.schema2schema.type.v1.0~",
+                "to_schema_id": "gts.x.test9.schema2schema.type.v1.1~"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_contains("body.error", "must be an instance")
         ),
     ]
 
