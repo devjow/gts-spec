@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.4
+> **VERSION**: GTS specification draft, version 0.5
 
 # Global Type System (GTS) Specification
 
@@ -71,7 +71,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 - [8. Parsing and Validation](#8-parsing-and-validation)
   - [8.1 Single-segment regex (type or instance)](#81-single-segment-regex-type-or-instance)
   - [8.2 Chained identifier regex](#82-chained-identifier-regex)
-- [9. Reference Implementation](#9-reference-implementation)
+- [9. Reference Implementation Recommendations](#9-reference-implementation-recommendations)
 - [10. Collecting Identifiers with Wildcards](#10-collecting-identifiers-with-wildcards)
 - [11. JSON and JSON Schema Conventions](#11-json-and-json-schema-conventions)
 - [12. Notes and Best Practices](#12-notes-and-best-practices)
@@ -86,7 +86,8 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.1     | Initial Draft, Request for Comments                                                           |
 | 0.2     | Semantics and Capabilities refined - access control notes, query language, attribute selector |
 | 0.3     | Version compatibility rules refined; more practical examples of usage; remove Python examples |
-| 0.4     | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic  |
+| 0.4     | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic   |
+| 0.5     | Added Referece Implmenetation recommendations (section 9)                                     |
 
 
 ## 1. Motivation
@@ -1073,9 +1074,19 @@ For chained identifiers, the pattern enforces that all segments except the last 
 - Validate that all segments except possibly the last are types
 
 
-## 9. Reference Implementation
+## 9. Reference Implementation Recommendations
 
-GTS provides reference implementations demonstrating the core operations for working with GTS identifiers. These operations include:
+GTS specification provides recommendations for reference implementation of the core operations for working with GTS identifiers. These recommendations are not mandatory but are provided to help implementers understand the expected behavior of appropriate reference implementations in different programming languages.
+
+For existing reference implementations, refer to the official libraries:
+
+- [gts-python](https://www.github.com/GlobalTypeSystem/gts-python)
+- [gts-go](https://www.github.com/GlobalTypeSystem/gts-go)
+- [gts-rust](https://www.github.com/GlobalTypeSystem/gts-rust)
+
+### 9.1 - GTS operations (OP#1–OP#11):
+
+Implement and expose all operations OP#1–OP#11 listed above and add appropriate unit tests.
 
 - **OP#1 - ID Validation**: Verify identifier syntax
 - **OP#2 - ID Extraction**: Extract identifiers from JSON objects or JSON Schema documents
@@ -1089,11 +1100,45 @@ GTS provides reference implementations demonstrating the core operations for wor
 - **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
 
-For complete implementation details, refer to the official libraries:
+### 9.2 - CLI support
 
-- [gts-python](https://www.github.com/GlobalTypeSystem/gts-python)
-- [gts-go](https://www.github.com/GlobalTypeSystem/gts-go)
-- [gts-rust](https://www.github.com/GlobalTypeSystem/gts-rust)
+Provide a CLI wrapping OPs for local use and CI: e.g., `gts validate`, `gts parse`, `gts match`, `gts uuid`, `gts compat`, `gts cast`, `gts query`, `gts get`. Use non-zero exit codes on validation/compatibility failures for pipeline integration.
+
+### 9.3 - Web server with OpenAPI
+
+Implement an HTTP server that conforms to `tests/openapi.json` so it can be tested by running `pytest ./tests` from this specification directory.
+
+### 9.4 - `x-gts-ref` support
+
+Use `x-gts-ref` to declare that a string field is a GTS entity reference, not an arbitrary string; validators must enforce this.
+
+Allowed values:
+- `"x-gts-ref": "gts.*"` — field must be a valid GTS identifier (see OP#1); optionally resolve against a registry if available.
+- `"x-gts-ref": "./$id"` — relative self-reference; field value must equal the current schema’s `$id` ("./" refers to the JSON Schema document, `$id` is its identifier).
+
+See examples in `./examples/modules` for typical patterns.
+
+Implementation notes:
+
+- Treating `x-gts-ref` like JSON Schema string constraints:
+  - When the value is a literal starting with `gts.` (e.g., `gts.x.core.modules.capability.v1~`), it can be enforced similarly to a `pattern` check by validating the instance value against the canonical GTS regex (sections 8.1/8.2) and, optionally, a stricter prefix constraint. Implementations may also parse the value as a full GTS ID (OP#1) instead of using regex.
+  - When the value is a relative path like `./$id` or `./description`, resolve it as a JSON Pointer relative to the schema root. If the pointer resolves to a string, enforce equality (equivalent to `const`).
+  - For nested paths (e.g., `./properties/anchor/const`), resolve the pointer; if it yields a string, enforce equality. If the resolved target is not a string, the schema is invalid for `x-gts-ref` purposes and should be rejected at registration time.
+
+
+### 9.5 - YAML support
+
+Accept and emit both JSON and YAML (`.json`, `.yaml`, `.yml`) for schemas and instances.
+Ensure conversions are lossless; preserve `$id`, `gtsId`, and custom extensions like `x-gts-ref`.
+
+### 9.6 - TypeSpec support
+
+Support generating JSON Schema and OpenAPI from TypeSpec while preserving GTS semantics.
+Ensure generated schemas use GTS identifiers as `$id` for types and keep any `x-gts-*` extensions intact.
+
+### 9.7 - UUID as object IDs
+
+Support UUIDs (format: `uuid`) for instance `id` fields.
 
 
 ## 10. Collecting Identifiers with Wildcards

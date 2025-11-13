@@ -1,0 +1,36 @@
+{
+  "id": "gts.x.core.modules.module.v1~x.webstore._.chat.v1",
+  "displayName": "WebStore Chat Module",
+  "description": "WebStore module providing chat capabilities.",
+  "capabilities": [
+    "gts.x.core.modules.capability.v1~x.core.api.has_rest.v1",
+    "gts.x.core.modules.capability.v1~x.core.api.has_ws.v1",
+    "gts.x.core.modules.capability.v1~x.core.api.has_sse.v1"         
+  ],
+  "requirements": [
+    "gts.x.core.modules.module.v1~x.webstore._.catalog.v1"        
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "max_retention": {
+        "type": "int",
+        "description": "Max chat messages retention in days",
+        "default": "90",
+        "minimum": 0,
+        "maximum": 356,
+      },
+      "max_file_size": {
+        "type": "int",
+        "description": "Max chat attachment file size in MegaBytes"
+      },
+      "search_in_catalog": {
+        "type": "boolean",
+        "description": "Enable searching products from catalog in chat",
+        "default": true
+      }
+    },
+    "required": ["max_file_size"],
+    "additionalProperties": false
+  }
+}

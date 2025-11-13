@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "gts.x.core.modules.module.v1~",
+  "type": "object",
+  "description": "Base schema for any application modules.",
+  "title": "Module metadata",
+  "required": ["displayName", "description"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "x-gts-ref": "./$id"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "List of capabilities provided by this module.",
+      "items": {
+        "type": "string",
+        "x-gts-ref": "gts.x.core.modules.capability.v1~"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "requirements": {
+      "type": "array",
+      "description": "List of required modules.",
+      "items": {
+        "type": "string",
+        "x-gts-ref": "./$id"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "configSchema": {
+      "type": "object",
+      "description": "Module config schema defining the configuration structure for this module.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object"],
+          "description": "Indicates that configuration is structured as a JSON schema."
+        },
+        "properties": {
+          "type": "object",
+          "description": "configSchema properties",
+        },
+        "required": {
+          "type": "array",
+          "description": "Fields required within the configSchema object."
+        },
+        "additionalProperties": {
+          "type": "boolean",
+          "description": "Whether additional properties are allowed in the configSchema object."
+        }
+      }
+    }
+  }
+}

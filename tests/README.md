@@ -1,6 +1,6 @@
 # Tests
 
-This directory contains test cases for the GTS specification operations. The test cases are implemented using Pytest and are designed to run against any web server implementing the GTS operations API.
+This directory contains test cases for the GTS specification [reference implementation recommendations](../README.md#9-reference-implementation-recommendations). The test cases are implemented using Pytest and are designed to run against any web server implementing the GTS operations API.
 
 ## Architecture Rationale
 
