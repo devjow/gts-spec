@@ -1100,43 +1100,54 @@ Implement and expose all operations OP#1–OP#11 listed above and add appropriat
 - **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
 
-### 9.2 - CLI support
+
+### 9.2 - GTS entities registration
+
+Implement simple GTS instances in-memory registry with optional GTS entities validation on registration. If "validation" parameter enabled, the entity registration action must ensure that all the GTS references are valid - identitfiers must match GTS pattern, refererred entities must be registered, the x-gts-ref references must be valid (see below)
+
+### 9.3 - CLI support
 
 Provide a CLI wrapping OPs for local use and CI: e.g., `gts validate`, `gts parse`, `gts match`, `gts uuid`, `gts compat`, `gts cast`, `gts query`, `gts get`. Use non-zero exit codes on validation/compatibility failures for pipeline integration.
 
-### 9.3 - Web server with OpenAPI
+### 9.4 - Web server with OpenAPI
 
-Implement an HTTP server that conforms to `tests/openapi.json` so it can be tested by running `pytest ./tests` from this specification directory.
+Implement an HTTP server that conforms to `tests/openapi.json` so it can be tested from this specification directory.
 
-### 9.4 - `x-gts-ref` support
+```
+# 1. Start appropriate server, normally as 'gts server'
+# 2. Test it's conformance to required openapi.json by running specification tests:
+pytest ./tests
+```
 
-Use `x-gts-ref` to declare that a string field is a GTS entity reference, not an arbitrary string; validators must enforce this.
+### 9.5 - `x-gts-ref` support
+
+Use `x-gts-ref` in GTS schemas (JSON schemas) to declare that a string field is a GTS entity reference, not an arbitrary string; validators must enforce this.
 
 Allowed values:
 - `"x-gts-ref": "gts.*"` — field must be a valid GTS identifier (see OP#1); optionally resolve against a registry if available.
-- `"x-gts-ref": "./$id"` — relative self-reference; field value must equal the current schema’s `$id` ("./" refers to the JSON Schema document, `$id` is its identifier).
+- `"x-gts-ref": "/$id"` — relative self-reference; field value must equal the current schema’s `$id` ("/" refers to the JSON Schema document root, `$id` is its identifier). The referred field must be a GTS string or another `x-gts-ref` field.
 
 See examples in `./examples/modules` for typical patterns.
 
 Implementation notes:
 
 - Treating `x-gts-ref` like JSON Schema string constraints:
-  - When the value is a literal starting with `gts.` (e.g., `gts.x.core.modules.capability.v1~`), it can be enforced similarly to a `pattern` check by validating the instance value against the canonical GTS regex (sections 8.1/8.2) and, optionally, a stricter prefix constraint. Implementations may also parse the value as a full GTS ID (OP#1) instead of using regex.
-  - When the value is a relative path like `./$id` or `./description`, resolve it as a JSON Pointer relative to the schema root. If the pointer resolves to a string, enforce equality (equivalent to `const`).
-  - For nested paths (e.g., `./properties/anchor/const`), resolve the pointer; if it yields a string, enforce equality. If the resolved target is not a string, the schema is invalid for `x-gts-ref` purposes and should be rejected at registration time.
+  - When the value is a literal starting with `gts.` (e.g., `gts.x.core.modules.capability.v1~`), it can be enforced similarly to a `startsWith(...)` check by validating the instance value against the provided GTS prefix (sections 8.1/8.2). Implementations must also validate the GTS ID.
+  - When the value is a relative path like `./$id` or `./description`, resolve it as a JSON Pointer relative to the schema root. If the pointer doesn't resolve to a GTS string or another `x-gts-ref` field, an error must be reported.
+  - For nested paths (e.g., `./properties/id`), resolve the pointer accordinly to the field path in the JSON Schema document.
 
 
-### 9.5 - YAML support
+### 9.6 - YAML support
 
 Accept and emit both JSON and YAML (`.json`, `.yaml`, `.yml`) for schemas and instances.
 Ensure conversions are lossless; preserve `$id`, `gtsId`, and custom extensions like `x-gts-ref`.
 
-### 9.6 - TypeSpec support
+### 9.7 - TypeSpec support
 
 Support generating JSON Schema and OpenAPI from TypeSpec while preserving GTS semantics.
 Ensure generated schemas use GTS identifiers as `$id` for types and keep any `x-gts-*` extensions intact.
 
-### 9.7 - UUID as object IDs
+### 9.8 - UUID as object IDs
 
 Support UUIDs (format: `uuid`) for instance `id` fields.
 
