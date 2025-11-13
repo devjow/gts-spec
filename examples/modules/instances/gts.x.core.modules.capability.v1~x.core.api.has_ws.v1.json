@@ -1,0 +1,4 @@
+{
+    "id": "gts.x.core.modules.capability.v1~x.core.api.has_ws.v1",
+    "description": "Capability representing the module ability to support WebSocket APIs."
+}
