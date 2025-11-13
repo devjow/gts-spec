@@ -22,7 +22,7 @@
     "type": {
       "description": "Identifier of the event type in GTS format.",
       "type": "string",
-      "x-gts-ref": "./$id"
+      "x-gts-ref": "/$id"
     },
     "$schema": {
       "description": "Link to the event type schema.",

@@ -8,7 +8,7 @@
   "properties": {
     "type": {
       "type": "string",
-      "x-gts-ref": "./$id"
+      "x-gts-ref": "/$id"
     },
     "displayName": {
       "type": "string",
@@ -34,7 +34,7 @@
       "description": "List of required modules.",
       "items": {
         "type": "string",
-        "x-gts-ref": "./$id"
+        "x-gts-ref": "/$id"
       },
       "minItems": 0,
       "uniqueItems": true
