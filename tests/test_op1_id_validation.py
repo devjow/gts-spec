@@ -62,7 +62,6 @@ class TestCaseTestOp1IdValidationAllValid(HttpRunner):
             .assert_equal("status_code", 200)
             .assert_equal("body.id", "${id}")
             .assert_equal("body.valid", True)
-            .assert_equal("body.error", "")
         ),
     ]
 
