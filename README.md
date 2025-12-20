@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.5
+> **VERSION**: GTS specification draft, version 0.6
 
 # Global Type System (GTS) Specification
 
@@ -56,6 +56,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
   - [3.4 Attribute selector](#34-attribute-selector)
   - [3.5 Access control with wildcards](#35-access-control-with-wildcards)
   - [3.6 Access Control Implementation Notes](#36-access-control-implementation-notes)
+  - [3.7 Well-known and Anonymous Instances](#37-well-known-and-anonymous-instances)
 - [4. GTS Identifier Versions Compatibility](#4-gts-identifier-versions-compatibility)
   - [4.1 Compatibility Modes](#41-compatibility-modes)
   - [4.2 JSON Schema Content Models](#42-json-schema-content-models)
@@ -81,13 +82,14 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 
 ## Document Version
 
-| Version | Status                                                                                        |
-|---------|-----------------------------------------------------------------------------------------------|
-| 0.1     | Initial Draft, Request for Comments                                                           |
-| 0.2     | Semantics and Capabilities refined - access control notes, query language, attribute selector |
-| 0.3     | Version compatibility rules refined; more practical examples of usage; remove Python examples |
-| 0.4     | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic   |
-| 0.5     | Added Referece Implmenetation recommendations (section 9)                                     |
+| Ver | Status                                                                                             |
+|-----|----------------------------------------------------------------------------------------------------|
+| 0.1 | Initial Draft, Request for Comments                                                                |
+| 0.2 | Semantics and Capabilities refined - access control notes, query language, attribute selector      |
+| 0.3 | Version compatibility rules refined; more practical examples of usage; remove Python examples      |
+| 0.4 | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic        |
+| 0.5 | Added Referece Implmenetation recommendations (section 9)                                          |
+| 0.6 | Introduced well-known/anonymous instance term; defined field naming implementation recommendations |
 
 
 ## 1. Motivation
@@ -441,6 +443,26 @@ The following guidance is provided for implementers building GTS-aware policy en
 - **Indexing**: Normalize and index rules by canonical GTS prefix to avoid expensive pattern-matching scans.
 - **Caching**: Cache resolution results for common patterns and predicate evaluations; invalidate caches on schema or policy changes.
 - **Auditing**: Log the concrete identifier and the matched rule (pattern + predicates) for traceability and compliance.
+
+### 3.7 Well-known and Anonymous Instances
+
+In GTS, a **type/schema is always named**: it has a stable GTS **type identifier** (ends with `~`) and can be referenced from a JSON Schema `$id`.
+
+However, an **instance/object** may be represented in two common ways:
+
+- **Well-known instance (named)**: used for unique, globally-defined objects that benefit from a stable human-readable name (catalog entries, topics/streams, modules, capabilities, etc.).
+  - Recommended: use a stable **GTS instance identifier** (no trailing `~`), commonly expressed as a **chain** where the left segment is the type and the rightmost segment is the instance name.
+  - Example (well-known topic/stream instance):
+    - `gts.x.core.events.topic.v1~x.commerce._.orders.v1.0`
+  - Field naming: typically `id` (alternatives: `gtsId`, `gts_id`).
+
+- **Anonymous instance**: used for runtime-created objects where a globally meaningful name is not required (events/messages, DB rows, audit records, etc.).
+  - Recommended: use an opaque identifier as `id` (typically a UUID) and store the associated GTS **type identifier** separately (e.g., in a `type` field).
+  - Example (anonymous event instance):
+    - `id: "7a1d2f34-5678-49ab-9012-abcdef123456"`, `type: "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~"`
+  - Field naming: `type` (alternatives: `gtsType`, `gts_type`).
+
+This split is common in event systems: **topics/streams** are often well-known instances, while individual **events** are anonymous. See `./examples/events` and the field-level recommendations in section **9.1**.
 
 
 ## 4. GTS Identifier Versions Compatibility
@@ -1084,7 +1106,36 @@ For existing reference implementations, refer to the official libraries:
 - [gts-go](https://www.github.com/GlobalTypeSystem/gts-go)
 - [gts-rust](https://www.github.com/GlobalTypeSystem/gts-rust)
 
-### 9.1 - GTS operations (OP#1–OP#11):
+### 9.1 - Identifier reference in JSON and JSON Schema
+
+This section provides **recommended** conventions for embedding GTS identifiers into JSON objects (instances) and JSON Schemas (types). Implementations may support additional conventions, but these provide an interoperable default.
+
+**JSON Schema (`$id`)**
+
+It is recommended to put the GTS **type identifier** into the JSON Schema `$id` field, using a URI-like form by prepending the `gts://` prefix:
+
+```json
+{
+  "$id": "gts://gts.x.core.events.type.v1~",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Event Envelope (Common Fields)"
+}
+```
+
+Implementation note: GTS itself defines the canonical identifier string starting with `gts.`. When `$id` is expressed as `gts://...`, implementations should trim the `gts://` prefix and treat the remainder as the canonical GTS identifier for validation, comparison, and registry keys. The `gts://` prefix exists only to make `$id` URI-compatible.
+
+**JSON instances (well-known vs anonymous)**
+
+- **Well-known instances (named)**: recommended to use a GTS identifier in the `id` field (alternatives: `gtsId`, `gts_id`). Prefer a chained identifier so the **left segment(s)** define the schema/type automatically, and the **rightmost** segment is the instance name.
+  - Example (well-known topic/stream instance): `gts.x.core.events.topic.v1~x.commerce._.orders.v1.0`
+- **Anonymous instances**: typically use the `id` field to store the object UUID, and store the GTS type identifier separately in a `type` field (alternatives: `gtsType`, `gts_type`).
+  - Example (anonymous event instance): `id: "7a1d2f34-5678-49ab-9012-abcdef123456"`, `type: "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~"`
+
+See working examples under `./examples/events`:
+- Well-known topics: `./examples/events/instances/gts.x.core.events.topic.v1~x.commerce.orders.orders.v1.0.json`
+- Anonymous events: `./examples/events/instances/gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1~.examples.json`
+
+### 9.2 - GTS operations (OP#1–OP#11):
 
 Implement and expose all operations OP#1–OP#11 listed above and add appropriate unit tests.
 
@@ -1101,15 +1152,15 @@ Implement and expose all operations OP#1–OP#11 listed above and add appropriat
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
 
 
-### 9.2 - GTS entities registration
+### 9.3 - GTS entities registration
 
 Implement simple GTS instances in-memory registry with optional GTS entities validation on registration. If "validation" parameter enabled, the entity registration action must ensure that all the GTS references are valid - identitfiers must match GTS pattern, refererred entities must be registered, the x-gts-ref references must be valid (see below)
 
-### 9.3 - CLI support
+### 9.4 - CLI support
 
 Provide a CLI wrapping OPs for local use and CI: e.g., `gts validate`, `gts parse`, `gts match`, `gts uuid`, `gts compat`, `gts cast`, `gts query`, `gts get`. Use non-zero exit codes on validation/compatibility failures for pipeline integration.
 
-### 9.4 - Web server with OpenAPI
+### 9.5 - Web server with OpenAPI
 
 Implement an HTTP server that conforms to `tests/openapi.json` so it can be tested from this specification directory.
 
@@ -1119,7 +1170,7 @@ Implement an HTTP server that conforms to `tests/openapi.json` so it can be test
 pytest ./tests
 ```
 
-### 9.5 - `x-gts-ref` support
+### 9.6 - `x-gts-ref` support
 
 Use `x-gts-ref` in GTS schemas (JSON schemas) to declare that a string field is a GTS entity reference, not an arbitrary string; validators must enforce this.
 
@@ -1137,17 +1188,17 @@ Implementation notes:
   - For nested paths (e.g., `./properties/id`), resolve the pointer accordinly to the field path in the JSON Schema document.
 
 
-### 9.6 - YAML support
+### 9.7 - YAML support
 
 Accept and emit both JSON and YAML (`.json`, `.yaml`, `.yml`) for schemas and instances.
 Ensure conversions are lossless; preserve `$id`, `gtsId`, and custom extensions like `x-gts-ref`.
 
-### 9.7 - TypeSpec support
+### 9.8 - TypeSpec support
 
 Support generating JSON Schema and OpenAPI from TypeSpec while preserving GTS semantics.
 Ensure generated schemas use GTS identifiers as `$id` for types and keep any `x-gts-*` extensions intact.
 
-### 9.8 - UUID as object IDs
+### 9.9 - UUID as object IDs
 
 Support UUIDs (format: `uuid`) for instance `id` fields.
 
