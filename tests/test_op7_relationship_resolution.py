@@ -17,7 +17,7 @@ class TestCaseTestOp7SchemaGraph_ValidChain(HttpRunner):
             RunRequest("register base event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test7.events.type.v1~",
+                "$$id": "gts://gts.x.test7.events.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id", "type", "tenantId", "occurredAt"],
@@ -38,7 +38,7 @@ class TestCaseTestOp7SchemaGraph_ValidChain(HttpRunner):
             RunRequest("register derived event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test7.events.type.v1~x.test7.graph.event.v1.0~",
+                "$$id": "gts://gts.x.test7.events.type.v1~x.test7.graph.event.v1.0~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
@@ -99,7 +99,7 @@ class TestCaseTestOp7SchemaGraph_BrokenReference(HttpRunner):
             RunRequest("register schema with broken reference")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test7.broken.schema.v1.0~",
+                "$$id": "gts://gts.x.test7.broken.schema.v1.0~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
@@ -145,7 +145,7 @@ class TestCaseTestOp7SchemaGraph_ComplexChain(HttpRunner):
             RunRequest("register base schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test7.base.type.v1~",
+                "$$id": "gts://gts.x.test7.base.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id"],
@@ -161,7 +161,7 @@ class TestCaseTestOp7SchemaGraph_ComplexChain(HttpRunner):
             RunRequest("register level 1 derived schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test7.base.type.v1~x.test7.derived1.type.v1~",
+                "$$id": "gts://gts.x.test7.base.type.v1~x.test7.derived1.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
@@ -243,7 +243,7 @@ class TestCaseTestOp7Relationship_DeepInheritanceChain(HttpRunner):
             RunRequest("register base schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.base.entity.root.v1~",
+                "$$id": "gts://gts.x.base.entity.root.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id"],
@@ -259,7 +259,7 @@ class TestCaseTestOp7Relationship_DeepInheritanceChain(HttpRunner):
             RunRequest("register level 2 schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.base.entity.root.v1~x.l2._.type.v1~",
+                "$$id": "gts://gts.x.base.entity.root.v1~x.l2._.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
@@ -398,7 +398,7 @@ class TestCaseTestOp7Relationship_CrossPackageReferences(HttpRunner):
             RunRequest("register base in package A")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.package_a.core.base.v1~",
+                "$$id": "gts://gts.x.package_a.core.base.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["baseId"],
@@ -495,7 +495,7 @@ class TestCaseTestOp7Relationship_MultiVendorChain(HttpRunner):
             RunRequest("register base by vendor X")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.platform.events.base.v1~",
+                "$$id": "gts://gts.x.platform.events.base.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["eventId", "timestamp"],

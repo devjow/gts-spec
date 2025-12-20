@@ -15,7 +15,7 @@ class TestCaseXGtsRef_PrefixAndSelfRef(HttpRunner):
             RunRequest("register capability base schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.testref._.capability.v1~",
+                "$$id": "gts://gts.x.testref._.capability.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id", "description"],
@@ -66,7 +66,7 @@ class TestCaseXGtsRef_PrefixAndSelfRef(HttpRunner):
             RunRequest("register module schema with x-gts-ref prefix and self-ref")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.testref._.module.v1~",
+                "$$id": "gts://gts.x.testref._.module.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["type", "id", "capabilities"],
@@ -173,7 +173,7 @@ class TestCaseXGtsRef_JsonPointer(HttpRunner):
             RunRequest("register pointer schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.testref._.pointer.v1~",
+                "$$id": "gts://gts.x.testref._.pointer.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "title": "PTR-TITLE",
                 "description": "PTR-DESC",
@@ -263,7 +263,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
             RunRequest("register pointer schema")
             .post("/entities?validation=true")
             .with_json({
-                "$$id": "gts.x.testref_malformed._.pointer.v1~",
+                "$$id": "gts://gts.x.testref_malformed._.pointer.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "title": "PTR-TITLE",
                 "description": "PTR-DESC",
@@ -284,7 +284,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
             RunRequest("register pointer schema")
             .post("/entities?validation=true")
             .with_json({
-                "$$id": "gts.x.testref_malformed._.pointer.v2~",
+                "$$id": "gts://gts.x.testref_malformed._.pointer.v2~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "title": "PTR-TITLE",
                 "description": "PTR-DESC",
@@ -306,7 +306,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
             RunRequest("register pointer schema")
             .post("/entities?validation=true")
             .with_json({
-                "$$id": "gts.x.testref_malformed._.pointer.v3~",
+                "$$id": "gts://gts.x.testref_malformed._.pointer.v3~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "title": "PTR-TITLE",
                 "description": "PTR-DESC",
@@ -329,7 +329,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
             RunRequest("register pointer schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.testref_malformed._.pointer.v4~",
+                "$$id": "gts://gts.x.testref_malformed._.pointer.v4~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "title": "PTR-TITLE",
                 "description": "PTR-DESC",
@@ -363,7 +363,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
             RunRequest("register pointer schema")
             .post("/entities?validation=true")
             .with_json({
-                "$$id": "gts.x.testref_malformed._.pointer.v5~",
+                "$$id": "gts://gts.x.testref_malformed._.pointer.v5~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "title": "PTR-TITLE",
                 "description": "PTR-DESC",
