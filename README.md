@@ -1176,7 +1176,7 @@ Use `x-gts-ref` in GTS schemas (JSON schemas) to declare that a string field is 
 
 Allowed values:
 - `"x-gts-ref": "gts.*"` — field must be a valid GTS identifier (see OP#1); optionally resolve against a registry if available.
-- `"x-gts-ref": "/$id"` — relative self-reference; field value must equal the current schema’s `$id` ("/" refers to the JSON Schema document root, `$id` is its identifier). The referred field must be a GTS string or another `x-gts-ref` field.
+- `"x-gts-ref": "/$id"` — relative self-reference; field value must equal the current schema’s `$id` without the `gts://` prefix ("/" refers to the JSON Schema document root, `$id` is its identifier). The referred field must be a GTS string or another `x-gts-ref` field.
 
 See examples in `./examples/modules` for typical patterns.
 
