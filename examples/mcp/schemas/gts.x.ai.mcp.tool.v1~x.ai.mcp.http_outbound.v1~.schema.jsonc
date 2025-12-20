@@ -5,7 +5,7 @@
   "title": "MCP Tool with HTTP Outbound Capability",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.ai.mcp.tool.v1~",
+    { "$ref": "gts.x.ai.mcp.tool.v1~" },
     {
       "type": "object",
       "properties": {
