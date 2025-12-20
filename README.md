@@ -301,7 +301,7 @@ A platform defines a base event schema with common fields:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.type.v1~",
+  "$id": "gts://gts.x.core.events.type.v1~",
   "type": "object",
   "properties": {
     "id": { "type": "string" },
@@ -318,7 +318,7 @@ A third-party vendor (ABC) registers a derived event type for order placement:
 ```jsonc
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.type.v1~abc.events.order_placed.v1~", // define a new event type derived from the base event type
+  "$id": "gts://gts.x.core.events.type.v1~abc.events.order_placed.v1~", // define a new event type derived from the base event type
   "type": "object",
   "allOf": [
     { "$ref": "gts.x.core.events.type.v1~" }, // inherit base event schema
@@ -549,7 +549,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Schema v1.0** (`gts.x.core.db.connection_config.v1.0~`):
 ```json
 {
-  "$id": "gts.x.core.db.connection_config.v1.0~",
+  "$id": "gts://gts.x.core.db.connection_config.v1.0~",
   "type": "object",
   "required": ["host", "port", "database"],
   "properties": {
@@ -565,7 +565,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Schema v1.1** (adds required field):
 ```json
 {
-  "$id": "gts.x.core.db.connection_config.v1.1~",
+  "$id": "gts://gts.x.core.db.connection_config.v1.1~",
   "type": "object",
   "required": ["host", "port", "database", "timeout"],
   "properties": {
@@ -601,7 +601,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Base event schema v1** (`gts.x.core.events.type.v1~`)
 ```json
 {
-  "$id": "gts.x.core.events.type.v1~",
+  "$id": "gts://gts.x.core.events.type.v1~",
   "type": "object",
   "required": ["gtsId", "id", "timestamp"],
   "properties": {
@@ -617,7 +617,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Schema v1.0** (`gts.x.core.events.type.v1~x.api.users.create_request.v1.0~`):
 ```json
 {
-  "$id": "gts.x.core.events.type.v1~x.api.users.create_request.v1.0~",
+  "$id": "gts://gts.x.core.events.type.v1~x.api.users.create_request.v1.0~",
   "type": "object",
   "allOf": [
     { "$ref": "gts.x.core.events.type.v1~" },
@@ -641,7 +641,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Schema v1.1** (adds optional field):
 ```json
 {
-  "$id": "gts.x.core.events.type.v1~x.api.users.create_request.v1.1~",
+  "$id": "gts://gts.x.core.events.type.v1~x.api.users.create_request.v1.1~",
   "type": "object",
   "allOf": [
     { "$ref": "gts.x.core.events.type.v1~" },
@@ -684,7 +684,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Schema v1.0** (`gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~`):
 ```json
 {
-  "$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+  "$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
   "type": "object",
   "allOf": [
     { "$ref": "gts.x.core.events.type.v1~" },
@@ -709,7 +709,7 @@ This section demonstrates how different types of schema changes affect compatibi
 **Schema v1.1** (adds optional field):
 ```json
 {
-  "$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~",
+  "$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~",
   "type": "object",
   "allOf": [
     { "$ref": "gts.x.core.events.type.v1~" },
@@ -803,13 +803,13 @@ This section demonstrates how different types of schema changes affect compatibi
 
 ```json
 // Base type (always compatible with derived types)
-"$id": "gts.x.core.events.type.v1~"
+"$id": "gts://gts.x.core.events.type.v1~"
 
 // Derived type v1.0 (refines base type)
-"$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~"
+"$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~"
 
 // Derived type v1.1 (minor version of the derived type)
-"$id": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~"
+"$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~"
 ```
 
 **Compatibility rules**:
@@ -893,7 +893,7 @@ First, let's define the base event schema for vendor `X` event manager:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.type.v1~",
+  "$id": "gts://gts.x.core.events.type.v1~",
   "title": "Base Event",
   "type": "object",
   "properties": {
@@ -912,7 +912,7 @@ Now, let's define the audit event schema for vendor `X` event manager:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.type.v1~x.core.audit.event.v1~",
+  "$id": "gts://gts.x.core.events.type.v1~x.core.audit.event.v1~",
   "title": "Audit Event, derived from Base Event",
   "type": "object",
   "allOf": [
@@ -943,7 +943,7 @@ Then, let's define the schema of specific audit event registered by vendor `ABC`
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
+  "$id": "gts://gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
   "title": "Vendor ABC Custom Purchase Audit Event from app APP",
   "type": "object",
   "allOf": [
@@ -1309,7 +1309,7 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gts.x.core.events.type.v1~",
+  "$id": "gts://gts.x.core.events.type.v1~",
   "type": "object",
   "properties": {
     "gtsId": { "type": "string" },

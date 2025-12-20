@@ -15,7 +15,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
             RunRequest("register base event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.events.type.v1~",
+                "$$id": "gts://gts.x.test6.events.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id", "type", "tenantId", "occurredAt"],
@@ -36,7 +36,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
             RunRequest("register derived event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                "$$id": "gts://gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
@@ -113,7 +113,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
             RunRequest("register base event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.events.type.v1~",
+                "$$id": "gts://gts.x.test6.events.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id", "type", "tenantId", "occurredAt"],
@@ -134,7 +134,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
             RunRequest("register derived event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
+                "$$id": "gts://gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
@@ -226,7 +226,7 @@ class TestCaseTestOp6Validation_FormatValidation(HttpRunner):
             RunRequest("register schema with formats")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.formats.user.v1~",
+                "$$id": "gts://gts.x.test6.formats.user.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["userId", "email", "createdAt"],
@@ -284,7 +284,7 @@ class TestCaseTestOp6Validation_NestedObjects(HttpRunner):
             RunRequest("register nested schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.nested.order.v1~",
+                "$$id": "gts://gts.x.test6.nested.order.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["orderId", "customer", "items"],
@@ -383,7 +383,7 @@ class TestCaseTestOp6Validation_EnumConstraints(HttpRunner):
             RunRequest("register schema with enum")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.enum.status.v1~",
+                "$$id": "gts://gts.x.test6.enum.status.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["statusId", "status"],
@@ -447,7 +447,7 @@ class TestCaseTestOp6Validation_ArrayConstraints(HttpRunner):
             RunRequest("register schema with array constraints")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test6.array.tags.v1~",
+                "$$id": "gts://gts.x.test6.array.tags.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["itemId", "tags"],

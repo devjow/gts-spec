@@ -17,7 +17,7 @@ class TestCaseTestOp11AttrAccess_ExistingFields(HttpRunner):
             RunRequest("register base event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.events.type.v1~",
+                "$$id": "gts://gts.x.test11.events.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id", "type", "tenantId", "occurredAt"],
@@ -160,7 +160,7 @@ class TestCaseTestOp11AttrAccess_NonExistentField(HttpRunner):
             RunRequest("register base event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.events.type.v1~",
+                "$$id": "gts://gts.x.test11.events.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["id", "type", "tenantId", "occurredAt"],
@@ -232,7 +232,7 @@ class TestCaseTestOp11AttrAccess_MissingAtSymbol(HttpRunner):
             RunRequest("register base event schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.events.type.v1~",
+                "$$id": "gts://gts.x.test11.events.type.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "required": ["eventId", "type", "tenantId", "occurredAt"],
@@ -338,7 +338,7 @@ class TestCaseTestOp11Attribute_ArrayElementAccess(HttpRunner):
             RunRequest("register schema with array")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.array_access.order.v1~",
+                "$$id": "gts://gts.x.test11.array_access.order.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
@@ -422,7 +422,7 @@ class TestCaseTestOp11Attribute_DeepNesting(HttpRunner):
             RunRequest("register deeply nested schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.deep.nested.v1~",
+                "$$id": "gts://gts.x.test11.deep.nested.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
@@ -492,7 +492,7 @@ class TestCaseTestOp11Attribute_MixedArrayAndNesting(HttpRunner):
             RunRequest("register mixed schema")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.mixed.complex.v1~",
+                "$$id": "gts://gts.x.test11.mixed.complex.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
@@ -587,7 +587,7 @@ class TestCaseTestOp11Attribute_BooleanAndNumericValues(HttpRunner):
             RunRequest("register schema with various types")
             .post("/entities")
             .with_json({
-                "$$id": "gts.x.test11.types.config.v1~",
+                "$$id": "gts://gts.x.test11.types.config.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
