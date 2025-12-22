@@ -39,7 +39,7 @@ class TestCaseTestOp2IdExtraction_Case2(HttpRunner):
             RunRequest("extract id (case 2)")
             .post("/extract-id")
             .with_json({
-                "gtsId": (
+                "id": (
                     "gts.x.test2.events.type.v1~abc.app._."
                     "custom_event.v1.2"
                 )
@@ -51,8 +51,8 @@ class TestCaseTestOp2IdExtraction_Case2(HttpRunner):
                 "gts.x.test2.events.type.v1~abc.app._.custom_event.v1.2",
             )
             .assert_equal("body.schema_id", "gts.x.test2.events.type.v1~")
-            .assert_equal("body.selected_entity_field", "gtsId")
-            .assert_equal("body.selected_schema_id_field", "gtsId")
+            .assert_equal("body.selected_entity_field", "id")
+            .assert_equal("body.selected_schema_id_field", "id")
             .assert_equal("body.is_schema", False)
         ),
     ]

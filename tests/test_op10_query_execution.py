@@ -9,7 +9,7 @@ def register_test_entities():
             RunRequest("register entity 1")
             .post("/entities")
             .with_json({
-                "gtsId": "gts.x.test10.query.event.v1.0~a.b.c.d.v1",
+                "id": "gts.x.test10.query.event.v1.0~a.b.c.d.v1",
                 "type": "gts.x.test10.query.event.v1.0~",
                 "eventId": "evt-001",
                 "status": "active",
@@ -22,7 +22,7 @@ def register_test_entities():
             RunRequest("register entity 2")
             .post("/entities")
             .with_json({
-                "gtsId": "gts.x.test10.query.event.v1.1~a.b.c.d.v2",
+                "id": "gts.x.test10.query.event.v1.1~a.b.c.d.v2",
                 "type": "gts.x.test10.query.event.v1.1~",
                 "eventId": "evt-002",
                 "status": "inactive",
@@ -35,7 +35,7 @@ def register_test_entities():
             RunRequest("register entity 3")
             .post("/entities")
             .with_json({
-                "gtsId": "gts.x.test10.query.event.v2.2~a.b.c.d.v1~a.b.c.d.v2",
+                "id": "gts.x.test10.query.event.v2.2~a.b.c.d.v1~a.b.c.d.v2",
                 "type": "gts.x.test10.query.event.v2.2~a.b.c.d.v1~",
                 "eventId": "evt-003",
                 "status": "active",
@@ -48,7 +48,7 @@ def register_test_entities():
             RunRequest("register entity 4")
             .post("/entities")
             .with_json({
-                "gtsId": "gts.x.test10.other_namespace.notification.v1.0~a.b.c.d.v1",
+                "id": "gts.x.test10.other_namespace.notification.v1.0~a.b.c.d.v1",
                 "type": "gts.x.test10.other_namespace.notification.v1.0~",
                 "eventId": "evt-003",
                 "status": "some",
@@ -61,7 +61,7 @@ def register_test_entities():
             RunRequest("register entity 5")
             .post("/entities")
             .with_json({
-                "gtsId": "gts.x.test10_2.commerce.order.v2.0~a.b.c.d.v1",
+                "id": "gts.x.test10_2.commerce.order.v2.0~a.b.c.d.v1",
                 "type": "gts.x.test10_2.commerce.order.v2.0~",
                 "eventId": "evt-004",
                 "status": "active",
