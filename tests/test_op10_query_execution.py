@@ -525,7 +525,7 @@ def register_wildcard_usecase_entities():
                 "description": "System message derived from v1.0",
                 "allOf": [
                     {
-                        "$$ref": "gts.x.test10_llm.chat.message.v1.0~"
+                        "$$ref": "gts://gts.x.test10_llm.chat.message.v1.0~"
                     }
                 ]
             })
@@ -557,7 +557,7 @@ def register_wildcard_usecase_entities():
                 "description": "User message derived from v1.1",
                 "allOf": [
                     {
-                        "$$ref": "gts.x.test10_llm.chat.message.v1.1~"
+                        "$$ref": "gts://gts.x.test10_llm.chat.message.v1.1~"
                     }
                 ]
             })

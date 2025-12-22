@@ -4,7 +4,7 @@
   "title": "Event Instance Schema: order.placed",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
     {
       "type": "object",
       "required": ["type", "payload", "subjectType"],

@@ -321,7 +321,7 @@ A third-party vendor (ABC) registers a derived event type for order placement:
   "$id": "gts://gts.x.core.events.type.v1~abc.events.order_placed.v1~", // define a new event type derived from the base event type
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" }, // inherit base event schema
+    { "$ref": "gts://gts.x.core.events.type.v1~" }, // inherit base event schema
     {
       "properties": {
         "typeId": { "const": "gts.x.core.events.type.v1~abc.orders.order_placed.v1~" },
@@ -639,7 +639,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$id": "gts://gts.x.core.events.type.v1~x.api.users.create_request.v1.0~",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
     {
       "properties": {
         "payload": {
@@ -663,7 +663,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$id": "gts://gts.x.core.events.type.v1~x.api.users.create_request.v1.1~",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
     {
       "properties": {
         "payload": {
@@ -706,7 +706,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
     {
       "properties": {
         "payload": {
@@ -731,7 +731,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.1~",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
     {
       "properties": {
         "payload": {
@@ -775,7 +775,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "allOf": [
-      {"$$ref": "gts.x.core.events.type.v1~"},
+      {"$$ref": "gts://gts.x.core.events.type.v1~"},
       {
           "type": "object",
           "required": ["type", "payload"],
@@ -799,7 +799,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "allOf": [
-      {"$$ref": "gts.x.core.events.type.v1~"},
+      {"$$ref": "gts://gts.x.core.events.type.v1~"},
       {
           "type": "object",
           "required": ["type", "payload"],
@@ -935,7 +935,7 @@ Now, let's define the audit event schema for vendor `X` event manager:
   "title": "Audit Event, derived from Base Event",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
     {
       "type": "object",
       "properties": {
@@ -966,7 +966,7 @@ Then, let's define the schema of specific audit event registered by vendor `ABC`
   "title": "Vendor ABC Custom Purchase Audit Event from app APP",
   "type": "object",
   "allOf": [
-    { "$ref": "gts.x.core.events.type.v1~x.core.audit.event.v1~" },
+    { "$ref": "gts://gts.x.core.events.type.v1~x.core.audit.event.v1~" },
     {
       "type": "object",
       "properties": {
@@ -1142,6 +1142,20 @@ It is recommended to put the GTS **type identifier** into the JSON Schema `$id` 
 ```
 
 Implementation note: GTS itself defines the canonical identifier string starting with `gts.`. When `$id` is expressed as `gts://...`, implementations should trim the `gts://` prefix and treat the remainder as the canonical GTS identifier for validation, comparison, and registry keys. The `gts://` prefix exists only to make `$id` URI-compatible.
+
+**JSON Schema (`$ref`)**
+
+It is recommended to make GTS schema references in JSON Schema `$ref` URI-compatible the same way as `$id`, by prepending the `gts://` prefix when `$ref` points at a GTS schema identifier:
+
+```json
+{
+  "allOf": [
+    { "$ref": "gts://gts.x.core.events.type.v1~" }
+  ]
+}
+```
+
+Implementation note: When `$ref` is expressed as `gts://...`, implementations should trim the `gts://` prefix and treat the remainder as the canonical GTS identifier for resolution, validation, comparison, and registry keys. The `gts://` prefix exists only to make `$ref` URI-compatible.
 
 **JSON instances (well-known vs anonymous)**
 

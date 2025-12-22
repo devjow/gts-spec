@@ -45,7 +45,7 @@ class TestCaseTestOp11AttrAccess_ExistingFields(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test11.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test11.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
@@ -260,7 +260,7 @@ class TestCaseTestOp11AttrAccess_MissingAtSymbol(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test11.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test11.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],

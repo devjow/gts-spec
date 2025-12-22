@@ -40,7 +40,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test6.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test6.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
@@ -138,7 +138,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test6.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test6.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
