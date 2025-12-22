@@ -135,7 +135,7 @@ class TestCaseTestOp7SchemaGraph_BrokenReference(HttpRunner):
 
 class TestCaseTestOp7SchemaGraph_LocalRefAllowed(HttpRunner):
     """OP#7 - Relationship Resolution: Allow local JSON Schema $ref"""
-    config = Config("OP#7 - Schema Graph (local $ref allowed)").base_url(
+    config = Config("OP#7 - Schema Graph (local $$ref allowed)").base_url(
         get_gts_base_url()
     )
 
@@ -146,7 +146,7 @@ class TestCaseTestOp7SchemaGraph_LocalRefAllowed(HttpRunner):
         Step(
             RunRequest("register schema with local $ref should succeed")
             .post("/entities")
-            .with_params(**{"validate": True})
+            .with_params(**{"validate": "true"})
             .with_json({
                 "$$id": "gts://gts.x.test7.local_ref.allowed.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -170,7 +170,7 @@ class TestCaseTestOp7SchemaGraph_LocalRefAllowed(HttpRunner):
 
 class TestCaseTestOp7SchemaGraph_RefNotGtsUri(HttpRunner):
     """OP#7 - Reject non-GTS external $ref"""
-    config = Config("OP#7 - Schema Graph ($ref not gts://...)").base_url(
+    config = Config("OP#7 - Schema Graph ($$ref not gts://...)").base_url(
         get_gts_base_url()
     )
 
@@ -181,7 +181,7 @@ class TestCaseTestOp7SchemaGraph_RefNotGtsUri(HttpRunner):
         Step(
             RunRequest("register schema with non-GTS $ref should fail")
             .post("/entities")
-            .with_params(**{"validate": True})
+            .with_params(**{"validate": "true"})
             .with_json({
                 "$$id": "gts://gts.x.test7.invalid_ref.not_gts_uri.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -200,7 +200,7 @@ class TestCaseTestOp7SchemaGraph_RefNotGtsUri(HttpRunner):
 
 class TestCaseTestOp7SchemaGraph_RefMalformedGts(HttpRunner):
     """OP#7 - Reject malformed GTS $ref"""
-    config = Config("OP#7 - Schema Graph (malformed GTS in $ref)").base_url(
+    config = Config("OP#7 - Schema Graph (malformed GTS in $$ref)").base_url(
         get_gts_base_url()
     )
 
@@ -211,7 +211,7 @@ class TestCaseTestOp7SchemaGraph_RefMalformedGts(HttpRunner):
         Step(
             RunRequest("register schema with malformed GTS $ref should fail")
             .post("/entities")
-            .with_params(**{"validate": True})
+            .with_params(**{"validate": "true"})
             .with_json({
                 "$$id": "gts://gts.x.test7.invalid_ref.malformed_gts.v1~",
                 "$$schema": "http://json-schema.org/draft-07/schema#",
