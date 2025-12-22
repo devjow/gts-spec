@@ -456,6 +456,16 @@ However, an **instance/object** may be represented in two common ways:
     - `gts.x.core.events.topic.v1~x.commerce._.orders.v1.0`
   - Field naming: typically `id` (alternatives: `gtsId`, `gts_id`).
 
+Example:
+
+```json
+{
+  "id": "gts.x.core.events.topic.v1~x.commerce._.orders.v1.0",
+  "name": "orders",
+  "description": "Order lifecycle events topic"
+}
+```
+
 - **Anonymous instance**: used for runtime-created objects where a globally meaningful name is not required (events/messages, DB rows, audit records, etc.).
   - Recommended: use an opaque identifier as `id` (typically a UUID) and store the associated GTS **type identifier** separately (e.g., in a `type` field).
   - Example (anonymous event instance):
@@ -464,6 +474,15 @@ However, an **instance/object** may be represented in two common ways:
 
 This split is common in event systems: **topics/streams** are often well-known instances, while individual **events** are anonymous. See `./examples/events` and the field-level recommendations in section **9.1**.
 
+Example:
+
+```json
+{
+  "id": "7a1d2f34-5678-49ab-9012-abcdef123456",
+  "type": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+  "occurredAt": "2025-09-20T18:35:00Z"
+}
+```
 
 ## 4. GTS Identifier Versions Compatibility
 
@@ -1276,7 +1295,119 @@ Result:    ❌ NO MATCH (different major versions)
 
 ## 11. JSON and JSON Schema Conventions
 
-It is advisable to include instance GTS identifiers in a top-level field, such as `id`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
+### 11.1 Global rules: schema vs instance, normalization, and document categories
+
+This section defines recommendations for how GTS-aware systems interpret JSON documents. The rules describe the concepts; the exact field names used for instance IDs and instance types are **implementation-defined** and may be **configuration-driven** (different systems may look for identifiers in different fields).
+
+#### Rule A — Schema vs instance discriminator
+
+**A JSON document is a schema if and only if it contains a top-level `$schema` field.**
+
+- If `$schema` is present → the document MUST be treated as a **schema**.
+- If `$schema` is absent → the document MUST be treated as an **instance**.
+
+This discriminator MUST be applied before any ID parsing heuristics.
+
+#### Rule B — GTS schema `$id` normalization
+
+For GTS schemas (documents with `$schema`), it is recommended that `$id` is URI-compatible by using:
+- `$id: "gts://<canonical-gts-id>"`
+
+Implementations MUST normalize this by stripping the `gts://` prefix when extracting/returning the canonical GTS identifier. The `gts://` prefix exists only to make `$id` URI-compatible.
+
+#### Rule C — JSON document categories
+
+Implementations MUST clearly distinguish the following **five** categories of JSON documents:
+
+1. **GTS entity schemas**
+   - Have `$schema`
+   - Have `$id` starting with `gts://` and the remainder is a valid **GTS type identifier** (ends with `~`)
+   - Example:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "gts://gts.x.core.events.type.v1~",
+  "type": "object"
+}
+```
+
+2. **Non‑GTS schemas**
+   - Have `$schema`
+   - Do not have a valid GTS `$id`
+   - Handling is **implementation-defined** (ignore vs error depending on API context)
+   - Example:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/order.json",
+  "type": "object"
+}
+```
+
+3. **Instances of unknown / non‑GTS schemas**
+   - No `$schema`
+   - Schema/type cannot be determined (no acceptable schema/type reference field found, or the field value is not a valid GTS ID)
+   - Handling is **implementation-defined** (ignore vs error depending on API context)
+   - Example:
+
+```json
+{
+  "id": "123",
+  "payload": { "foo": "bar" }
+}
+```
+
+4. **Well-known GTS instances (named)**
+   - No `$schema`
+   - Instance is identified by a **GTS instance identifier** (often a chain) stored in an implementation-chosen instance-ID field
+   - The schema/type is derived from the **left segment(s)** of the chain
+   - Example (well-known topic/stream instance):
+
+```json
+{
+  "id": "gts.x.core.events.topic.v1~x.commerce._.orders.v1.0",
+  "name": "orders"
+}
+```
+
+> NOTE: In this specification, an instance identifier is a GTS identifier **without** the trailing `~` (i.e., it does not name a schema/type).
+> Some systems may still accept an `id` field or it's equivalent that contains a **type/schema** identifier (ending with `~`) and treat it as a *schema reference* rather than an *instance identifier*.
+> This behavior is **not defined by the GTS spec** and is entirely **implementation-specific / configuration-driven**.
+
+5. **Anonymous GTS instances**
+   - No `$schema`
+   - Instance `id` is opaque (typically UUID)
+   - Schema/type is provided separately via an implementation-chosen schema/type field (e.g., `type`, `gtsType`, `gts_type`)
+   - Example (anonymous event instance):
+
+```json
+{
+  "id": "7a1d2f34-5678-49ab-9012-abcdef123456",
+  "type": "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+  "occurredAt": "2025-09-20T18:35:00Z"
+}
+```
+
+> NOTE: In this specification, a type identifier is a GTS identifier **with** the trailing `~`.
+> Some systems may still accept a `type` field or it's equivalent that contains an **instance** identifier (not ending with `~`). This behavior is **not defined by the GTS spec** and is entirely **implementation-specific / configuration-driven**.
+
+
+#### ID and type-field heuristics (implementation-defined)
+
+For **instances** (documents without `$schema`), implementations typically apply heuristics in this order:
+
+1. **Try instance ID fields** (commonly `id`, then aliases like `gtsId`, `gts_id`):
+   - If the value is a valid GTS identifier, treat it as a **well-known instance** and derive `schema_id` from the chain (everything up to and including the last `~`).
+   - Otherwise treat it as an **anonymous instance** ID value.
+2. **For anonymous instances**, determine the schema/type from a separate field (commonly `type`, or aliases like `schema`, `gtsType`, `gts_type`).
+
+Different systems may choose different field names and priority orders via configuration. The examples below (and the `./examples/*` folders) use the common defaults: `id` for instance ID and `type` for instance type.
+
+### 11.2 Examples
+
+It is advisable to include instance identifiers in a top-level field such as `id`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
 
 **Example #1**: **instance definition** of an object instance (event topic) that has an `id` field that encodes the object type (`gts.x.core.events.topic.v1~`) and identifies the object itself (`x.core.idp.events.v1`). In the example below it makes no sense to add an additional `type` field referring to the object schema because the `id` is already unique and there are no other event topics with the given id in the system:
 
