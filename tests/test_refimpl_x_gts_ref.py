@@ -275,7 +275,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
                 "additionalProperties": False
             })
             .validate()
-            .assert_equal("status_code", 200)
+            .assert_equal("status_code", 422)
             .assert_equal("body.ok", False)
             .assert_contains("body.error", "Invalid GTS identifier: gts.x.y.z")
         ),
@@ -296,7 +296,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
                 "additionalProperties": False
             })
             .validate()
-            .assert_equal("status_code", 200)
+            .assert_equal("status_code", 422)
             .assert_equal("body.ok", False)
             .assert_contains("body.error", "x-gts-ref validation failed")
             .assert_contains("body.error", "a.b.c")
@@ -319,7 +319,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
                 "additionalProperties": False
             })
             .validate()
-            .assert_equal("status_code", 200)
+            .assert_equal("status_code", 422)
             .assert_equal("body.ok", False)
             .assert_contains("body.error", "x-gts-ref validation failed")
             .assert_contains("body.error", "a.b.c")
@@ -342,7 +342,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
                 "additionalProperties": False
             })
             .validate()
-            .assert_equal("status_code", 200)
+            .assert_equal("status_code", 422)
             .assert_equal("body.ok", False)
             .assert_contains("body.error", "Validation failed")
             .assert_contains("body.error", "a.b.c")
