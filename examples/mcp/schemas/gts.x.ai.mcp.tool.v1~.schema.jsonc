@@ -5,7 +5,7 @@
   "title": "MCP Tool (Base)",
   "type": "object",
   "properties": {
-    "gtsId": {
+    "id": {
       "type": "string",
       "description": "Full GTS chain for this tool manifest (type lineage + instance)."
     },
@@ -73,6 +73,6 @@
       "additionalProperties": false
     }
   },
-  "required": ["gtsId", "name", "description", "runtime", "timeout_ms", "security", "inputs", "outputs"],
+  "required": ["id", "name", "description", "runtime", "timeout_ms", "security", "inputs", "outputs"],
   "additionalProperties": false
 }

@@ -83,7 +83,7 @@ class TestCaseTestOp11AttrAccess_ExistingFields(HttpRunner):
             RunRequest("register instance")
             .post("/entities")
             .with_json({
-                "gtsId": (
+                "id": (
                     "gts.x.test11.events.type.v1~"
                     "x.test11.nested.type.v1.0~"
                     "x.test11.my.event.v1.0"
@@ -181,7 +181,7 @@ class TestCaseTestOp11AttrAccess_NonExistentField(HttpRunner):
             RunRequest("register instance")
             .post("/entities")
             .with_json({
-                "gtsId": (
+                "id": (
                     "gts.x.test11.events.type.v1~"
                     "x.test11.missing.event.v1.0"
                 ),

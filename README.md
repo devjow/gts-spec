@@ -603,10 +603,10 @@ This section demonstrates how different types of schema changes affect compatibi
 {
   "$id": "gts://gts.x.core.events.type.v1~",
   "type": "object",
-  "required": ["gtsId", "id", "timestamp"],
+  "required": ["id", "type", "timestamp"],
   "properties": {
-    "gtsId": { "type": "string" },
     "id": { "type": "string" },
+    "type": { "type": "string" },
     "timestamp": { "type": "integer" },
     "payload": { "type": "object", "additionalProperties": true }
   },
@@ -897,12 +897,12 @@ First, let's define the base event schema for vendor `X` event manager:
   "title": "Base Event",
   "type": "object",
   "properties": {
-    "gtsId": { "type": "string", "$comment": "This field serves as the unique identifier for the event schema" },
     "id": { "type": "string", "$comment": "This field serves as the unique identifier for the event instance" },
+    "type": { "type": "string", "$comment": "This field serves as the unique identifier for the event schema" },
     "timestamp": { "type": "integer", "$comment": "timestamp in seconds since epoch" },
     "payload": { "type": "object", "additionalProperties": true, "$comment": "Event payload... can be anything" }
   },
-  "required": ["gtsId", "id", "timestamp", "payload"],
+  "required": ["id", "type", "timestamp", "payload"],
   "additionalProperties": false
 }
 ```
@@ -974,12 +974,12 @@ Then, let's define the schema of specific audit event registered by vendor `ABC`
 }
 ```
 
-Finally, when the producer (the application `APP` of vendor `ABC`) emits the event, it uses the `gtsId` to identify the event schema and provide required payload:
+Finally, when the producer (the application `APP` of vendor `ABC`) emits the event, it uses the `type` to identify the event schema and provide required payload:
 
 ```json
 {
-  "gtsId": "gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
   "id": "e81307e5-5ee8-4c0a-8d1f-bd98a65c517e",
+  "type": "gts.x.core.events.type.v1~x.core.audit.event.v1~abc.app.store.purchase_audit_event.v1.2~",
   "timestamp": 1743466200000000000,
   "payload": {
     "user_id": "9c905ae1-f0f3-4cfb-aa07-5d9a86219abe",
@@ -997,7 +997,7 @@ Finally, when the producer (the application `APP` of vendor `ABC`) emits the eve
 
 When the event manager receives the event it processes it as follows:
 
-1. **Schema Resolution**: Parse the `gtsId` to identify the full chain. The event manager can see that this instance conforms to `gts.x.core.events.type.v1~`, `...~x.core.audit.event.v1~`, and finally `...~abc.app.store.purchase_audit_event.v1.2~`.
+1. **Schema Resolution**: Parse the `type` to identify the full chain. The event manager can see that this instance conforms to `gts.x.core.events.type.v1~`, `...~x.core.audit.event.v1~`, and finally `...~abc.app.store.purchase_audit_event.v1.2~`.
 
 2. **Validation**: Load the most specific JSON Schema (`...~abc.app.store.purchase_audit_event.v1.2~`) and validate the event object against it. It would automatically mean the event body is validated against any other schema in the chain (e.g., the base event and the base audit event).
 
@@ -1276,13 +1276,13 @@ Result:    ❌ NO MATCH (different major versions)
 
 ## 11. JSON and JSON Schema Conventions
 
-It is advisable to include instance GTS identifiers in a top-level field, such as `gtsId`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
+It is advisable to include instance GTS identifiers in a top-level field, such as `id`. However, the choice of the specific field name is left to the discretion of the implementation and can vary from service to service.
 
-**Example #1**: **instance definition** of an object instance (event topic) that has a `gtsId` field that encodes the object type (`gts.x.core.events.topic.v1~`) and identifies the object itself (`x.core.idp.events.v1`). In the example below it makes no sense to add an additional `id` field because the `gtsId` is already unique and there are no other event topics with the given id in the system:
+**Example #1**: **instance definition** of an object instance (event topic) that has an `id` field that encodes the object type (`gts.x.core.events.topic.v1~`) and identifies the object itself (`x.core.idp.events.v1`). In the example below it makes no sense to add an additional `type` field referring to the object schema because the `id` is already unique and there are no other event topics with the given id in the system:
 
 ```json
 {
-  "gtsId": "gts.x.core.events.topic.v1~x.core.idp.events.v1",
+  "id": "gts.x.core.events.topic.v1~x.core.idp.events.v1",
   "description": "User-related events (creation, profile changes, etc.)",
   "retention": "P30D",
   "ordering": "by-partition-key",
@@ -1293,13 +1293,13 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
 
 ```json
 [{
-    "gtsId": "gts.x.core.events.type.v1~x.core.idp.events.v1~",
     "id": "123",
+    "type": "gts.x.core.events.type.v1~x.core.idp.events.v1~",
     "payload": { "foo": "123", "bar": 42 }
 },
 {
-    "gtsId": "gts.x.core.events.type.v1~x.core.idp.events.v1~",
     "id": "125",
+    "type": "gts.x.core.events.type.v1~x.core.idp.events.v1~",
     "payload": { "foo": "xyz", "bar": 123 }
 }]
 ```
@@ -1312,11 +1312,11 @@ It is advisable to include instance GTS identifiers in a top-level field, such a
   "$id": "gts://gts.x.core.events.type.v1~",
   "type": "object",
   "properties": {
-    "gtsId": { "type": "string" },
+    "id": { "type": "string" },
     "timestamp": { "type": "string", "format": "date-time" },
     "payload": { "type": "object" }
   },
-  "required": ["gtsId", "payload"]
+  "required": ["id", "payload"]
 }
 ```
 
