@@ -218,7 +218,7 @@ class TestCaseTestOp11AttrAccess_NonExistentField(HttpRunner):
 
 
 class TestCaseTestOp11AttrAccess_MissingAtSymbol(HttpRunner):
-    """OP#11 - Attribute Access: Missing @ symbol in path"""
+    """OP#11 - Attribute Access: Missing @ symbol in path should fail"""
     config = Config("OP#11 - Attribute Access (missing @)").base_url(
         get_gts_base_url()
     )
@@ -285,16 +285,17 @@ class TestCaseTestOp11AttrAccess_MissingAtSymbol(HttpRunner):
             .validate()
             .assert_equal("status_code", 200)
         ),
-        # Register instance
+        # Register instance (anonymous instance with UUID id)
         Step(
             RunRequest("register instance")
             .post("/entities")
             .with_json({
+                "id": "cf6i7j89-0123-94fg-4567-fgh678901234",
                 "type": (
                     "gts.x.test11.events.type.v1~"
                     "x.test11.nosymbol.event.v1.0~"
                 ),
-                "eventId": "cf6i7j89-0123-94fg-4567-fgh678901",
+
                 "tenantId": "66666666-7777-8888-9999-000000000000",
                 "occurredAt": "2025-09-20T23:00:00Z",
                 "payload": {
