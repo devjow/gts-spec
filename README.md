@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.6
+> **VERSION**: GTS specification draft, version 0.7
 
 # Global Type System (GTS) Specification
 
@@ -90,6 +90,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.4 | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic        |
 | 0.5 | Added Referece Implmenetation recommendations (section 9)                                          |
 | 0.6 | Introduced well-known/anonymous instance term; defined field naming implementation recommendations |
+| 0.7 | BREAKING: require $ref value to start with 'gts://'; strict rules for schema/instance distinction  |
 
 
 ## 1. Motivation
@@ -1154,6 +1155,8 @@ It is recommended to make GTS schema references in JSON Schema `$ref` URI-compat
   ]
 }
 ```
+
+Note: local JSON Schema references (e.g. `"$ref": "#/definitions/Foo"`, `"$ref": "#/$defs/Foo"`) are JSON Schema compliant and remain valid. The `gts://` recommendation applies only when `$ref` targets a GTS schema identifier.
 
 Implementation note: When `$ref` is expressed as `gts://...`, implementations should trim the `gts://` prefix and treat the remainder as the canonical GTS identifier for resolution, validation, comparison, and registry keys. The `gts://` prefix exists only to make `$ref` URI-compatible.
 
