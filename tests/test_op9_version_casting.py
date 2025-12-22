@@ -45,7 +45,7 @@ class TestCaseTestOp9Cast_MinorVersionUpcast(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test9.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test9.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
@@ -99,7 +99,7 @@ class TestCaseTestOp9Cast_MinorVersionUpcast(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test9.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test9.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
@@ -239,7 +239,7 @@ class TestCaseTestOp9Cast_MinorVersionDowncast(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test9.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test9.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
@@ -276,7 +276,7 @@ class TestCaseTestOp9Cast_MinorVersionDowncast(HttpRunner):
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "allOf": [
-                    {"$$ref": "gts.x.test9.events.type.v1~"},
+                    {"$$ref": "gts://gts.x.test9.events.type.v1~"},
                     {
                         "type": "object",
                         "required": ["type", "payload"],
