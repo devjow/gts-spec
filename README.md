@@ -1420,6 +1420,8 @@ For **instances** (documents without `$schema`), implementations typically apply
    - Otherwise treat it as an **anonymous instance** ID value.
 2. **For anonymous instances**, determine the schema/type from a separate field (commonly `type`, or aliases like `schema`, `gtsType`, `gts_type`).
 
+**Important**: When determining instance type, a chained GTS ID in the instance ID field ALWAYS takes priority over any explicit type field. The type is derived from the chain's type segments, not from a separate type property.
+
 Different systems may choose different field names and priority orders via configuration. The examples below (and the `./examples/*` folders) use the common defaults: `id` for instance ID and `type` for instance type.
 
 ### 11.2 Examples
