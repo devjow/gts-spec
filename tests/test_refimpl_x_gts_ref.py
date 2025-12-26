@@ -344,7 +344,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
             .validate()
             .assert_equal("status_code", 422)
             .assert_equal("body.ok", False)
-            .assert_contains("body.error", "(?i)validation failed")
+            .assert_contains("body.error", "alidation failed")
             .assert_contains("body.error", "a.b.c")
         ),
         # Validate previous pointer to non-GTS const
