@@ -409,3 +409,80 @@ class TestCaseIssueOp1ChainedInstancesValid(HttpRunner):
             .assert_equal("body.valid", True)
         ),
     ]
+
+
+class TestCaseOp1WildcardEdgeCasesInvalid(HttpRunner):
+    """OP#1 - Wildcard edge cases that should be rejected"""
+    config = Config(
+        "OP#1 - Wildcard edge cases (invalid)"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    # a) '*' not at end of pattern
+                    "gts.a.b.c.d.v1~a.*~",
+                    # b) '*' not at token boundary
+                    "gts.a.b.c.d.v1~a*",
+                    # d) '*' in the middle of a type segment
+                    "gts.a.b.c.*.v1~a.*",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate wildcard invalid cases")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.id", "${id}")
+            .assert_equal("body.valid", False)
+            .assert_equal("body.is_wildcard", True)
+            .assert_not_equal("body.error", "")
+        ),
+    ]
+
+
+class TestCaseOp1WildcardEdgeCasesValid(HttpRunner):
+    """OP#1 - Wildcard edge cases that should be accepted"""
+    config = Config(
+        "OP#1 - Wildcard edge cases (valid)"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    # c) wildcard at token boundary at the end
+                    "gts.a.b.c.d.v1~a.*",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate wildcard valid case")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.id", "${id}")
+            .assert_equal("body.valid", True)
+            .assert_equal("body.is_wildcard", True)
+        ),
+    ]
