@@ -16,7 +16,6 @@ class TestCaseTestOp1IdValidationAllValid(HttpRunner):
             {
                 "id": [
                     "gts.x.test1.events.type.v1~",
-                    "gts.x.test1.objects_registry.object_a.v1.0",
                     "gts.abc.commerce.orders.order.v2.15~",
                     "gts.vendor.pkg.ns.type.v0~",
                     "gts.v123.p456.n789.t000.v999.888~",
@@ -26,7 +25,6 @@ class TestCaseTestOp1IdValidationAllValid(HttpRunner):
                     "gts.x.test1.events.type.v1~abc.app._.custom_event.v1.2",
                     "gts.a.b.c.d.v1~e.f.g.h.v2~i.j.k.l.v3~",
                     "gts.vendor_name.pkg_123.ns_abc.type_xyz.v10.5~",
-                    "gts.x.test1.api.endpoint.v0.1",
                     "gts.a1.b2.c3.d4.v100.200~",
                     (
                         "gts.x.test1.events.type.v1~vendor.app."
@@ -316,5 +314,98 @@ class TestCaseTestOp1IdValidation_InvalidSegmentFormats(HttpRunner):
             .validate()
             .assert_equal("status_code", 200)
             .assert_equal("body.valid", False)
+        ),
+    ]
+
+
+class TestCaseIssue37_SingleSegmentInstancesProhibited(HttpRunner):
+    """
+    Issue #37: Well-known instances without left-hand type segment must be prohibited.
+
+    Single-segment instance IDs (e.g., gts.x.pkg.ns.type.v1) are now invalid.
+    Instance IDs MUST be chained with at least one type segment.
+    """
+    config = Config(
+        "Issue #37 - Single-segment instance IDs must be rejected"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    # Single-segment instance IDs (no trailing ~) - all should be INVALID
+                    "gts.x.test1.events.type.v1",
+                    "gts.x.test1.objects_registry.object_a.v1.0",
+                    "gts.abc.commerce.orders.order.v2.15",
+                    "gts.vendor.pkg.ns.type.v0",
+                    "gts.v123.p456.n789.t000.v999.888",
+                    "gts.x.pkg._.type.v1",
+                    "gts.myvendor.mypackage.mynamespace.mytype.v1.0",
+                    "gts.vendor_name.pkg_123.ns_abc.type_xyz.v10.5",
+                    "gts.x.test1.api.endpoint.v0.1",
+                    "gts.a1.b2.c3.d4.v100.200",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate single-segment instance IDs are rejected")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.id", "${id}")
+            .assert_equal("body.valid", False)
+            .assert_not_equal("body.error", "")
+        ),
+    ]
+
+
+class TestCaseIssue37_ChainedInstancesValid(HttpRunner):
+    """
+    Issue #37: Chained instance IDs (with left-hand type segment) are valid.
+
+    Instance IDs with at least 2 segments (type~instance) should be accepted.
+    """
+    config = Config(
+        "Issue #37 - Chained instance IDs must be accepted"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    # Chained instance IDs (type~instance) - all should be VALID
+                    "gts.x.test1.events.type.v1~abc.app._.custom_event.v1.2",
+                    "gts.x.test1.events.type.v1~vendor.app.derived.event.v2.0",
+                    "gts.x.core.events.topic.v1~x.commerce._.orders.v1.0",
+                    "gts.a.b.c.d.v1~e.f.g.h.v2~i.j.k.l.v3.0",
+                    "gts.x.test1.events.type.v1~a.b.c.d.v1~e.f.g.h.v1~i.j.k.l.v1.0",
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("validate chained instance IDs are accepted")
+            .get("/validate-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.id", "${id}")
+            .assert_equal("body.valid", True)
         ),
     ]

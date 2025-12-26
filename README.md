@@ -135,8 +135,9 @@ The GTS identifier is a string with total length of 1024 characters maximum.
 - A single type identifier (schema):
   - `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~`
   - Note the trailing `~` to denote a type (schema) identifier.
-- A single instance identifier (object):
-  - `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
+- A single instance identifier (object of given type):
+  - `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
+  - Well-known instance identifiers MUST include a left-hand type segment in a chain (see 2.2 and 3.7).
   - Note: no trailing `~` for instances. The identifier ends with an integer (the last version component).
 
 The `<vendor>` refers to a string code that indicates the origin of a given schema or instance definition. This can be valuable in systems that support cross-vendor data exchange, such as events or configuration files, especially in environments with deployable applications or plugins.
@@ -200,11 +201,13 @@ The complete GTS identifier syntax in Extended Backus-Naur Form (EBNF):
 
 ```ebnf
 (* Top-level identifier *)
-gts-identifier = "gts." , gts-segment , [ chain-suffix ] ;
+gts-identifier = "gts." , gts-segment , ( chain-suffix-type | chain-suffix-instance ) ;
 
-(* Chain of type extensions *)
-chain-suffix   = { "~" , gts-segment } , [ final-tilde ] ;
-final-tilde    = "~" ;  (* present for type IDs, absent for instance IDs *)
+(* Chained type ID ends with ~ *)
+chain-suffix-type      = { "~" , gts-segment } , "~" ;
+
+(* Chained instance ID MUST have at least one tilde separator and NO trailing tilde *)
+chain-suffix-instance  = "~" , gts-segment , { "~" , gts-segment } ;
 
 (* Single GTS ID segment *)
 gts-segment    = vendor , "." , package , "." , namespace , "." , type , "." , version ;
@@ -452,7 +455,7 @@ In GTS, a **type/schema is always named**: it has a stable GTS **type identifier
 However, an **instance/object** may be represented in two common ways:
 
 - **Well-known instance (named)**: used for unique, globally-defined objects that benefit from a stable human-readable name (catalog entries, topics/streams, modules, capabilities, etc.).
-  - Recommended: use a stable **GTS instance identifier** (no trailing `~`), commonly expressed as a **chain** where the left segment is the type and the rightmost segment is the instance name.
+  - **Mandatory**: well-known instance identifiers MUST be expressed as a **chain** where the left segment is the type and the rightmost segment is the instance name. Single-segment instance identifiers (without a left-hand type segment) are prohibited.
   - Example (well-known topic/stream instance):
     - `gts.x.core.events.topic.v1~x.commerce._.orders.v1.0`
   - Field naming: typically `id` (alternatives: `gtsId`, `gts_id`).
