@@ -90,7 +90,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.4 | Clarify some corner cases - tokens must not start with digit, uuid5, minor version semantic        |
 | 0.5 | Added Referece Implmenetation recommendations (section 9)                                          |
 | 0.6 | Introduced well-known/anonymous instance term; defined field naming implementation recommendations |
-| 0.7 | BREAKING: require $ref value to start with 'gts://'; strict rules for schema/instance distinction  |
+| 0.7 | BREAKING: require $ref value to start with 'gts://'; strict rules for schema/instance distinction; prohibiting well-known instances without left-hand type segments  |
 
 
 ## 1. Motivation
