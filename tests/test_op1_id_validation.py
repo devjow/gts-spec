@@ -177,7 +177,7 @@ class TestCaseTestOp1IdValidation_VersionEdgeCases(HttpRunner):
                     "gts.x.pkg.ns.type.v1.999999~",
                     "gts.x.pkg.ns.type.v0.0~",
                     "gts.x.pkg.ns.type.v0.1~",
-                    "gts.x.pkg.ns.type.v0",
+                    "gts.x.pkg.ns.type.v0~",
                 ]
             }
         ),
