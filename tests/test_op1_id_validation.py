@@ -318,7 +318,7 @@ class TestCaseTestOp1IdValidation_InvalidSegmentFormats(HttpRunner):
     ]
 
 
-class TestCaseIssue37_SingleSegmentInstancesProhibited(HttpRunner):
+class TestCaseIssueOp1SingleSegmentInstancesProhibited(HttpRunner):
     """
     Issue #37: Well-known instances without left-hand type segment must be prohibited.
 
@@ -368,7 +368,7 @@ class TestCaseIssue37_SingleSegmentInstancesProhibited(HttpRunner):
     ]
 
 
-class TestCaseIssue37_ChainedInstancesValid(HttpRunner):
+class TestCaseIssueOp1ChainedInstancesValid(HttpRunner):
     """
     Issue #37: Chained instance IDs (with left-hand type segment) are valid.
 
