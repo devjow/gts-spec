@@ -39,7 +39,7 @@ class TestCaseTestOp9Cast_MinorVersionUpcast(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test9.events.type.v1~"
+                    "gts://gts.x.test9.events.type.v1~"
                     "x.commerce.orders.order_placed.v1.0~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -93,7 +93,7 @@ class TestCaseTestOp9Cast_MinorVersionUpcast(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test9.events.type.v1~"
+                    "gts://gts.x.test9.events.type.v1~"
                     "x.commerce.orders.order_placed.v1.1~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -233,7 +233,7 @@ class TestCaseTestOp9Cast_MinorVersionDowncast(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test9.events.type.v1~"
+                    "gts://gts.x.test9.events.type.v1~"
                     "x.test9.cast.event.v1.0~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -270,7 +270,7 @@ class TestCaseTestOp9Cast_MinorVersionDowncast(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test9.events.type.v1~"
+                    "gts://gts.x.test9.events.type.v1~"
                     "x.test9.cast.event.v1.1~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
