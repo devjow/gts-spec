@@ -248,6 +248,97 @@ class TestCaseTestOp4Wildcard_GlobalPatterns(HttpRunner):
             .assert_equal("body.match", True)
         ),
         Step(
+            RunRequest("candidate has minor version, but it matches the pattern")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1~*",
+                    "candidate": "gts.a.b.c.d.v1.0~a.b.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("wildcard match")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1~*",
+                    "candidate": "gts.a.b.c.d.v1.0~a.b.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("wildcard match")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1~*",
+                    "candidate": "gts.a.b.c.d.v1.0~a.b.c.d.v1",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("implicitwildcard match")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1.1~",
+                    "candidate": "gts.a.b.c.d.v1.1~a.b.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("implicitwildcard match")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1~",
+                    "candidate": "gts.a.b.c.d.v1.0~a.b.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("implicit wildcard match")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1~",
+                    "candidate": "gts.a.b.c.d.v1.0~a.b.c.d.v1",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("implicit wildcard match")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.w.x.y.z.v1~",
+                    "candidate": "gts.w.x.y.z.v1.0~a.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
             RunRequest("reject malformed vendor wildcard")
             .get("/match-id-pattern")
             .with_params(
@@ -303,6 +394,62 @@ class TestCaseTestOp4Wildcard_GlobalPatterns(HttpRunner):
             .assert_equal("body.match", False)
             .assert_not_equal("body.error", "")
         ),
+        Step(
+            RunRequest("malformed pattern")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d~",
+                    "candidate": "gts.a.b.c.d~a.b.c.d.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        ),
+        Step(
+            RunRequest("malformed candidate")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1~",
+                    "candidate": "gts.a.b.c.d~a.b.c.d.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        ),
+        Step(
+            RunRequest("pattern defines explicit minor version only, candidate uses major")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1.1~*",
+                    "candidate": "gts.a.b.c.d.v1~a.b.c.d.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        ),
+        Step(
+            RunRequest("minor version mismatch")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.a.b.c.d.v1.1~*",
+                    "candidate": "gts.a.b.c.d.v1.0~a.b.c.d.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        )
     ]
 
 
