@@ -432,6 +432,17 @@ The following guidance is provided for implementers building GTS-aware policy en
 - **Derived-type envelopes**: Grant access at the base type (e.g., `gts.x.core.events.type.v1~`) so that derived schemas remain covered if they conform by chain rules.
 
 **Matching semantics options:**
+- **Implicit derived-type coverage (recommended)**: Granting access to a base schema identifier without an explicit wildcard (e.g., `gts.a.b.c.d.v1~`) SHOULD be treated as an implicit grant to all derived types and instances under that base type (equivalent in intent to `gts.a.b.c.d.v1~*`).
+
+  Example candidate: `gts.a.b.c.d.v1~w.x.y.z.v1`
+
+  This candidate SHOULD match all of:
+  - `gts.a.b.c.d.v1~`
+  - `gts.a.b.c.d.v1~*`
+  - `gts.a.b.c.d.v1~w.*`
+
+  But it SHOULD NOT match:
+  - `gts.a.b.c.d.v1~x.*`
 - **Segment-wise prefixing**: The `*` wildcard can match any valid content of the target segment and its suffix hierarchy, enabling vendor/package/namespace/type grouping.
 - **Chain awareness**: Patterns may target the base segment, derived segments, or instance tail; evaluation should consider the entire chain when present.
 - **Attribute filters**: Optional `[name="value", ...]` predicates further constrain matches (e.g., only instances referencing a specific `screen_type`).
