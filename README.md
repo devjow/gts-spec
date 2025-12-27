@@ -1137,6 +1137,8 @@ This section provides **recommended** conventions for embedding GTS identifiers 
 
 It is recommended to put the GTS **type identifier** into the JSON Schema `$id` field, using a URI-like form by prepending the `gts://` prefix:
 
+> **Reserved prefix note**: Do **not** place the canonical `gts.` string directly in `$id`. Always wrap the identifier with the `gts://` scheme (for example: `"$id": "gts://gts.x.core.events.type.v1~"`). The raw `gts.` prefix is reserved for canonical identifiers inside the scheme, and mixing it directly into `$id` leads to ambiguity and upload failures.
+
 ```json
 {
   "$id": "gts://gts.x.core.events.type.v1~",
@@ -1147,9 +1149,13 @@ It is recommended to put the GTS **type identifier** into the JSON Schema `$id` 
 
 Implementation note: GTS itself defines the canonical identifier string starting with `gts.`. When `$id` is expressed as `gts://...`, implementations should trim the `gts://` prefix and treat the remainder as the canonical GTS identifier for validation, comparison, and registry keys. The `gts://` prefix exists only to make `$id` URI-compatible.
 
+When `$id` starts with `gts://`, the remainder **must** be a valid, wildcard-free GTS identifier (see OP#1 rules). Asterisks and other wildcard tokens are not permitted in schema identifiers.
+
 **JSON Schema (`$ref`)**
 
 It is recommended to make GTS schema references in JSON Schema `$ref` URI-compatible the same way as `$id`, by prepending the `gts://` prefix when `$ref` points at a GTS schema identifier:
+
+> **Note:** Just like `$id`, do not embed raw `gts.` prefixes in `$ref`. Use the URI form (`gts://...`) and ensure the referenced identifier is a valid GTS ID with no wildcard characters.
 
 ```json
 {
@@ -1162,6 +1168,8 @@ It is recommended to make GTS schema references in JSON Schema `$ref` URI-compat
 Note: local JSON Schema references (e.g. `"$ref": "#/definitions/Foo"`, `"$ref": "#/$defs/Foo"`) are JSON Schema compliant and remain valid. The `gts://` recommendation applies only when `$ref` targets a GTS schema identifier.
 
 Implementation note: When `$ref` is expressed as `gts://...`, implementations should trim the `gts://` prefix and treat the remainder as the canonical GTS identifier for resolution, validation, comparison, and registry keys. The `gts://` prefix exists only to make `$ref` URI-compatible.
+
+The post-`gts://` content must therefore parse as a valid GTS identifier with no wildcards; otherwise the schema upload should be rejected.
 
 **JSON instances (well-known vs anonymous)**
 

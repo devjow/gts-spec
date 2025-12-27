@@ -189,6 +189,62 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
     ]
 
 
+class TestCaseTestOp6SchemaValidation_InvalidSchemaIdPrefix(HttpRunner):
+    """OP#6 - Reject JSON Schema identifier values that start with 'gts.'"""
+
+    config = Config(
+        "OP#6 - Schema Validation: reject plain gts prefix in id"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register schema with plain gts prefix should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "$$id": "gts.x.test6.invalid_id.plain_prefix.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"]
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
+class TestCaseTestOp6SchemaValidation_InvalidSchemaIdWildcard(HttpRunner):
+    """OP#6 - Reject JSON Schema identifier with wildcard after gts://"""
+
+    config = Config(
+        "OP#6 - Schema Validation: reject wildcard gts:// id"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register schema with wildcard gts:// id should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "$$id": "gts://gts.x.test6.events.*.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"]
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
 class TestCaseTestOp6ValidateInstance_NotFound(HttpRunner):
     """OP#6 - Schema Validation: Validate non-existent instance"""
     config = Config("OP#6 - Validate Instance (not found)").base_url(get_gts_base_url())
