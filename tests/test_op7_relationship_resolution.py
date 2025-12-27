@@ -133,6 +133,68 @@ class TestCaseTestOp7SchemaGraph_BrokenReference(HttpRunner):
     ]
 
 
+class TestCaseTestOp7SchemaGraph_RefPlainGtsPrefix(HttpRunner):
+    """OP#7 - Reject $ref that starts with 'gts.' instead of 'gts://'"""
+
+    config = Config("OP#7 - Schema Graph ($$ref plain gts prefix)").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register schema with plain gts. $ref should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "$$id": "gts://gts.x.test7.invalid_ref.plain_prefix.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": "gts.x.test7.invalid_ref.plain_prefix.v1~"
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
+class TestCaseTestOp7SchemaGraph_RefWildcardGts(HttpRunner):
+    """OP#7 - Reject $ref using wildcards after gts://"""
+
+    config = Config("OP#7 - Schema Graph ($$ref wildcard gts://)").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register schema with wildcard gts:// $ref should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "$$id": "gts://gts.x.test7.invalid_ref.wildcard.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": "gts://gts.x.test7.events.*.v1~"
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
 class TestCaseTestOp7SchemaGraph_LocalRefAllowed(HttpRunner):
     """OP#7 - Relationship Resolution: Allow local JSON Schema $ref"""
     config = Config("OP#7 - Schema Graph (local $$ref allowed)").base_url(
