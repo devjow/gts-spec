@@ -258,7 +258,7 @@ class TestCaseTestOp4Wildcard_GlobalPatterns(HttpRunner):
             )
             .validate()
             .assert_equal("status_code", 200)
-            .assert_false("body.match")
+            .assert_equal("body.match", False)
             .assert_not_equal("body.error", "")
         ),
     ]
