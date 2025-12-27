@@ -199,6 +199,71 @@ class TestCaseTestOp4Wildcard_MultiLevelWildcards(HttpRunner):
     ]
 
 
+class TestCaseTestOp4Wildcard_GlobalPatterns(HttpRunner):
+    config = Config("OP#4 Extended - Global wildcard patterns").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("match entire namespace with gts.*")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.*",
+                    "candidate": "gts.vendor.pkg.ns.type.v1~",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("match vendor prefix with gts.vendor.*")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.vendor.*",
+                    "candidate": "gts.vendor.pkg.ns.type.v1~",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("match vendor prefix when candidate has wildcard")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.vendor.*",
+                    "candidate": "gts.vendor.pkg.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", True)
+        ),
+        Step(
+            RunRequest("reject malformed vendor wildcard")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.vendor*",
+                    "candidate": "gts.vendor.pkg.ns.type.v1~",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_false("body.match")
+            .assert_not_equal("body.error", "")
+        ),
+    ]
+
+
 class TestCaseTestOp4WildcardMatch_Positive_2(HttpRunner):
     config = Config("OP#4 - Wildcard Match (pos 2)").base_url(get_gts_base_url())
 
