@@ -39,7 +39,7 @@ class TestCaseTestOp11AttrAccess_ExistingFields(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test11.events.type.v1~"
+                    "gts://gts.x.test11.events.type.v1~"
                     "x.test11.nested.event.v1.0~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -254,7 +254,7 @@ class TestCaseTestOp11AttrAccess_MissingAtSymbol(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test11.events.type.v1~"
+                    "gts://gts.x.test11.events.type.v1~"
                     "x.test11.nosymbol.event.v1.0~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",

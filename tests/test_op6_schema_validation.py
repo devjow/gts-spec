@@ -245,6 +245,86 @@ class TestCaseTestOp6SchemaValidation_InvalidSchemaIdWildcard(HttpRunner):
     ]
 
 
+class TestCaseTestOp6SchemaValidation_SchemaMissingId(HttpRunner):
+    """OP#6 - Reject JSON Schema documents missing $id"""
+
+    config = Config(
+        "OP#6 - Schema Validation: reject schema without $$id"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register schema without $id should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"]
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
+class TestCaseTestOp6SchemaValidation_SchemaNonGtsId(HttpRunner):
+    """OP#6 - Reject JSON Schema documents whose $id is not a GTS identifier"""
+
+    config = Config(
+        "OP#6 - Schema Validation: reject non-GTS $$id"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register schema with non-GTS $id should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "$$id": "http://globaltypesystem.org/schemas/foo",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"]
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
+class TestCaseTestOp6SchemaValidation_UnknownInstanceFormat(HttpRunner):
+    """OP#6 - Reject instances missing recognizable GTS id/type fields"""
+
+    config = Config(
+        "OP#6 - Schema Validation: reject unrecognized instance layout"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register instance without GTS fields should fail")
+            .post("/entities")
+            .with_params(**{"validate": "true"})
+            .with_json({
+                "event_id": "c5a29a31-86c7-4b4e-9fa6-8a5db2d1a1c4",
+                "event_type": "gts.x.core.events.type.v1~a.b.c.d.v1"
+            })
+            .validate()
+            .assert_equal("status_code", 422)
+        ),
+    ]
+
+
 class TestCaseTestOp6ValidateInstance_NotFound(HttpRunner):
     """OP#6 - Schema Validation: Validate non-existent instance"""
     config = Config("OP#6 - Validate Instance (not found)").base_url(get_gts_base_url())

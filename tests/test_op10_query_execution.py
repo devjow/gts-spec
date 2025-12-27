@@ -518,7 +518,7 @@ def register_wildcard_usecase_entities():
             .with_json({
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "$$id": (
-                    "gts.x.test10_llm.chat.message.v1.0~"
+                    "gts://gts.x.test10_llm.chat.message.v1.0~"
                     "x.test10_llm._.system_message.v1.0~"
                 ),
                 "type": "object",
@@ -550,7 +550,7 @@ def register_wildcard_usecase_entities():
             .with_json({
                 "$$schema": "http://json-schema.org/draft-07/schema#",
                 "$$id": (
-                    "gts.x.test10_llm.chat.message.v1.1~"
+                    "gts://gts.x.test10_llm.chat.message.v1.1~"
                     "x.test10_llm._.user_message.v1.1~"
                 ),
                 "type": "object",

@@ -348,7 +348,7 @@ class TestCaseTestOp7SchemaGraph_ComplexChain(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.test7.base.type.v1~"
+                    "gts://gts.x.test7.base.type.v1~"
                     "x.test7.derived1.type.v1~"
                     "x.test7.derived2.type.v1~"
                 ),
@@ -444,7 +444,7 @@ class TestCaseTestOp7Relationship_DeepInheritanceChain(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.base.entity.root.v1~"
+                    "gts://gts.x.base.entity.root.v1~"
                     "x.l2._.type.v1~"
                     "x.l3._.type.v1~"
                 ),
@@ -473,7 +473,7 @@ class TestCaseTestOp7Relationship_DeepInheritanceChain(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.base.entity.root.v1~"
+                    "gts://gts.x.base.entity.root.v1~"
                     "x.l2._.type.v1~"
                     "x.l3._.type.v1~"
                     "x.l4._.type.v1~"
@@ -504,7 +504,7 @@ class TestCaseTestOp7Relationship_DeepInheritanceChain(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.base.entity.root.v1~"
+                    "gts://gts.x.base.entity.root.v1~"
                     "x.l2._.type.v1~"
                     "x.l3._.type.v1~"
                     "x.l4._.type.v1~"
@@ -584,7 +584,7 @@ class TestCaseTestOp7Relationship_CrossPackageReferences(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.package_a.core.base.v1~"
+                    "gts://gts.x.package_a.core.base.v1~"
                     "x.package_b._.derived.v1~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -607,7 +607,7 @@ class TestCaseTestOp7Relationship_CrossPackageReferences(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.package_a.core.base.v1~"
+                    "gts://gts.x.package_a.core.base.v1~"
                     "x.package_b._.derived.v1~"
                     "x.package_c._.extended.v1~"
                 ),
@@ -682,7 +682,7 @@ class TestCaseTestOp7Relationship_MultiVendorChain(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.platform.events.base.v1~"
+                    "gts://gts.x.platform.events.base.v1~"
                     "abc.app._.custom_event.v1~"
                 ),
                 "$$schema": "http://json-schema.org/draft-07/schema#",
@@ -705,7 +705,7 @@ class TestCaseTestOp7Relationship_MultiVendorChain(HttpRunner):
             .post("/entities")
             .with_json({
                 "$$id": (
-                    "gts.x.platform.events.base.v1~"
+                    "gts://gts.x.platform.events.base.v1~"
                     "abc.app._.custom_event.v1~"
                     "xyz.plugin._.specialized.v1~"
                 ),
