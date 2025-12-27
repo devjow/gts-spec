@@ -253,7 +253,49 @@ class TestCaseTestOp4Wildcard_GlobalPatterns(HttpRunner):
             .with_params(
                 **{
                     "pattern": "gts.vendor*",
+                    "candidate": "gts.vendor.pkg.ns.type.v1~a.*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        ),
+        Step(
+            RunRequest("reject malformed vendor wildcard")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.vendor*",
                     "candidate": "gts.vendor.pkg.ns.type.v1~",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        ),
+        Step(
+            RunRequest("reject malformed vendor wildcard")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.vendor.*",
+                    "candidate": "gts.vendor.pkg.ns.type.v1~a*",
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.match", False)
+            .assert_not_equal("body.error", "")
+        ),
+        Step(
+            RunRequest("reject malformed vendor wildcard")
+            .get("/match-id-pattern")
+            .with_params(
+                **{
+                    "pattern": "gts.vendor.*",
+                    "candidate": "gts.vendor.pkg.ns.type.v1~a-b.*",
                 }
             )
             .validate()
