@@ -249,7 +249,7 @@ class TestCaseTestOp6SchemaValidation_SchemaMissingId(HttpRunner):
     """OP#6 - Reject JSON Schema documents missing $id"""
 
     config = Config(
-        "OP#6 - Schema Validation: reject schema without $id"
+        "OP#6 - Schema Validation: reject schema without $$id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
@@ -276,7 +276,7 @@ class TestCaseTestOp6SchemaValidation_SchemaNonGtsId(HttpRunner):
     """OP#6 - Reject JSON Schema documents whose $id is not a GTS identifier"""
 
     config = Config(
-        "OP#6 - Schema Validation: reject non-GTS $id"
+        "OP#6 - Schema Validation: reject non-GTS $$id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
