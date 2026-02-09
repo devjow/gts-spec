@@ -368,7 +368,7 @@ CREATE TABLE events (
 
 ### 3.3 Query Language
 
-GTS Query Language is a compact predicate syntax, inspired by XPath/JSONPath, that lets you constrain results by attributes. Attach a square-bracket clause to a GTS identifier with space-separated name="value" pairs. Example form: <gts>[ attr="value", other="value2" ].
+GTS Query Language is a compact predicate syntax, inspired by XPath/JSONPath, that lets you constrain results by attributes. Attach a square-bracketed clause to a GTS identifier containing name="value" pairs separated by commas. Example form: <gts>[ attr="value", other="value2" ].
 
 > **Scope note:** The query language and attribute selector (section 3.4) are runtime conveniences for filtering and accessing data in GTS-aware applications. They are **not part of the core GTS identifier specification** and should not be embedded in stored identifiers or schema definitions. Use them only in runtime queries, policy evaluation, and data access operations.
 
@@ -445,7 +445,7 @@ The following guidance is provided for implementers building GTS-aware policy en
   - `gts.a.b.c.d.v1~x.*`
 - **Segment-wise prefixing**: The `*` wildcard can match any valid content of the target segment and its suffix hierarchy, enabling vendor/package/namespace/type grouping.
 - **Chain awareness**: Patterns may target the base segment, derived segments, or instance tail; evaluation should consider the entire chain when present.
-- **Attribute filters**: Optional `[name="value", ...]` predicates further constrain matches (e.g., only instances referencing a specific `screen_type`).
+- **Attribute filters**: Optional `[name="value", ...]` predicates further constrain matches (e.g., only instances referencing a specific `name`).
 - **Minor version semantics**: Patterns without minor versions (e.g., `gts.vendor.pkg.ns.type.v1~*`) match candidates with any minor version of that major version (e.g., `v1.0~`, `v1.1~`), since the minor version is optional and omitting it means "any minor version". See section 10 for detailed examples.
 
 **Evaluation guidelines:**
@@ -790,7 +790,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "allOf": [
-      {"$$ref": "gts://gts.x.core.events.type.v1~"},
+      {"$ref": "gts://gts.x.core.events.type.v1~"},
       {
           "type": "object",
           "required": ["type", "payload"],
@@ -814,7 +814,7 @@ This section demonstrates how different types of schema changes affect compatibi
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "allOf": [
-      {"$$ref": "gts://gts.x.core.events.type.v1~"},
+      {"$ref": "gts://gts.x.core.events.type.v1~"},
       {
           "type": "object",
           "required": ["type", "payload"],
