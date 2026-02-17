@@ -91,7 +91,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.5 | Added Referece Implmenetation recommendations (section 9)                                          |
 | 0.6 | Introduced well-known/anonymous instance term; defined field naming implementation recommendations |
 | 0.7 | BREAKING: require $ref value to start with 'gts://'; strict rules for schema/instance distinction; prohibiting well-known instances without left-hand type segments  |
-
+| 0.8beta1 | Add OP#12 (schema vs schema validation), unified validation endpoint (/validate-entity), and clarify instance -> schema and schema -> schema validation semantics for chained GTS IDs |
 
 ## 1. Motivation
 
@@ -259,6 +259,24 @@ GTS identifiers enable the following operations and use cases:
    - For a type identifier (ending with `~`): resolve to the JSON Schema definition
    - For an instance identifier: extract the rightmost type from the chain and validate the object against that schema
    - Chain validation: optionally verify that each type in the chain is compatible with its predecessor
+
+#### Validation semantics for GTS chained IDs (instance -> schema and schema -> schema)
+
+GTS identifiers may be chained (e.g. `gts.A~B~C`). Validation MUST respect the left-to-right inheritance model and MUST preserve the compatibility guarantee (section 3.2).
+
+- **Instance → schema validation** (validate an object instance):
+  - The system MUST resolve the **rightmost type** in the identifier chain and validate the instance payload against that JSON Schema.
+  - If the instance identifier includes a type chain (`A~B~<instance>`), validating against the rightmost type `B` MUST also imply conformance to all base types in the chain (by transitivity).
+  - Implementations MAY additionally validate that each adjacent type pair in the chain is compatible (schema→schema validation), but the primary runtime instance validation target is always the rightmost type.
+
+- **Schema → schema validation** (validate a derived schema against its predecessor schema):
+  - Given a derived type identifier chain (e.g. `A~B~` or `A~B~C~`), the system MUST validate that each derived schema is compatible with its immediate predecessor in the chain.
+  - The compatibility rule is: every valid instance of the derived schema MUST also be a valid instance of the base schema.
+  - When JSON Schema inheritance is expressed via `allOf` (recommended), the derived schema MUST be written such that it does not invalidate the compatibility guarantee.
+
+- **`additionalProperties` and adding new properties**:
+  - If a base schema (or any schema in the inheritance chain) defines an object with `additionalProperties: false`, then derived schemas MUST NOT introduce new properties at that object level that would be rejected by the base schema.
+  - Derived schemas MAY still tighten constraints of existing properties (e.g. reduce `maxLength`, narrow `enum`, increase `minimum`) and MAY further specify previously-open nested objects (e.g. base `payload: {"type":"object"}` and derived defines `payload.properties`).
 
 3. **Version Compatibility Checking**: Automatically determine if schemas with different MINOR versions are compatible (see section 4).
 
@@ -1193,9 +1211,9 @@ See working examples under `./examples/events`:
 - Well-known topics: `./examples/events/instances/gts.x.core.events.topic.v1~x.commerce.orders.orders.v1.0.json`
 - Anonymous events: `./examples/events/instances/gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1~.examples.json`
 
-### 9.2 - GTS operations (OP#1–OP#11):
+### 9.2 - GTS operations (OP#1 - OP#12):
 
-Implement and expose all operations OP#1–OP#11 listed above and add appropriate unit tests.
+Implement and expose all operations OP#1–OP#12 listed above and add appropriate unit tests.
 
 - **OP#1 - ID Validation**: Verify identifier syntax
 - **OP#2 - ID Extraction**: Extract identifiers from JSON objects or JSON Schema documents
@@ -1208,7 +1226,7 @@ Implement and expose all operations OP#1–OP#11 listed above and add appropriat
 - **OP#9 - Version Casting**: Transform instances between compatible MINOR versions
 - **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
-
+- **OP#12 - Schema vs Schema Validation**: Validate derived schemas against their base schemas. Derived schemas using `allOf` must conform to all constraints defined in their parent schemas throughout the inheritance hierarchy. This ensures type safety in schema extension and prevents constraint violations in multi-level schema hierarchies.
 
 ### 9.3 - GTS entities registration
 
