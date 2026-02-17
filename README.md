@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.7
+> **VERSION**: GTS specification draft, version 0.8Beta2
 
 # Global Type System (GTS) Specification
 
