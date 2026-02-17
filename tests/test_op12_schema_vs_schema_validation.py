@@ -2,6 +2,207 @@ from .conftest import get_gts_base_url
 from httprunner import HttpRunner, Config, Step, RunRequest
 
 
+# ---------------------------------------------------------------------------
+# Helper functions to reduce boilerplate across repetitive test patterns
+# ---------------------------------------------------------------------------
+
+def _register(gts_id, schema_body, label="register schema"):
+    """Register a schema via POST /entities."""
+    body = {
+        "$$id": gts_id,
+        "$$schema": "http://json-schema.org/draft-07/schema#",
+        **schema_body,
+    }
+    return Step(
+        RunRequest(label)
+        .post("/entities")
+        .with_json(body)
+        .validate()
+        .assert_equal("status_code", 200)
+    )
+
+
+def _register_derived(gts_id, base_ref, overlay, label="register derived"):
+    """Register a derived schema that uses allOf with a $$ref."""
+    body = {
+        "$$id": gts_id,
+        "$$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "allOf": [
+            {"$$ref": base_ref},
+            overlay,
+        ],
+    }
+    return Step(
+        RunRequest(label)
+        .post("/entities")
+        .with_json(body)
+        .validate()
+        .assert_equal("status_code", 200)
+    )
+
+
+def _validate_schema(schema_id, expect_ok, label="validate schema"):
+    """Validate a derived schema via POST /validate-schema."""
+    step = (
+        RunRequest(label)
+        .post("/validate-schema")
+        .with_json({"schema_id": schema_id})
+        .validate()
+        .assert_equal("status_code", 200)
+        .assert_equal("body.ok", expect_ok)
+    )
+    return Step(step)
+
+
+def _make_2level_constraint_drop_steps(
+    ns, prop_name, prop_type, constraint_kw, constraint_val,
+    extra_base=None,
+):
+    """Build teststeps for a 2-level test where derived drops a keyword.
+
+    The base schema has one property with a constraint; the derived
+    schema restates the property without that constraint keyword.
+    Validation must fail (constraint loosened).
+    """
+    base_id = f"gts://gts.x.test12.drop.{ns}.v1~"
+    derived_suffix = f"x.test12._.no_{ns}.v1~"
+    derived_id = base_id + derived_suffix
+    schema_id = f"gts.x.test12.drop.{ns}.v1~" + derived_suffix
+
+    base_prop = {"type": prop_type, constraint_kw: constraint_val}
+    if extra_base:
+        base_prop.update(extra_base)
+
+    derived_prop = {"type": prop_type}
+    if extra_base:
+        derived_prop.update(extra_base)
+
+    return [
+        _register(base_id, {
+            "type": "object",
+            "required": [prop_name],
+            "properties": {prop_name: base_prop},
+        }, f"register base with {constraint_kw}"),
+        _register_derived(
+            derived_id, base_id,
+            {"type": "object", "properties": {
+                prop_name: derived_prop,
+            }},
+            f"register derived dropping {constraint_kw}",
+        ),
+        _validate_schema(
+            schema_id, False,
+            f"validate should fail - {constraint_kw} dropped",
+        ),
+    ]
+
+
+def _make_3level_const_steps(
+    ns, field_name, field_type, l2_const, l3_const, expect_l3_ok,
+):
+    """Build teststeps for a 3-level const conflict or idempotent test.
+
+    Base has a plain typed field. L2 adds const=l2_const (valid).
+    L3 sets const=l3_const. If l3_const != l2_const → fail;
+    if equal → pass (idempotent).
+    """
+    base_id = f"gts://gts.x.test12.{ns}.item.v1~"
+    l2_suffix = f"x.test12._.l2_{ns}.v1~"
+    l3_suffix = f"x.test12._.l3_{ns}.v1~"
+    l2_id = base_id + l2_suffix
+    l3_id = l2_id + l3_suffix
+    l2_schema_id = f"gts.x.test12.{ns}.item.v1~" + l2_suffix
+    l3_schema_id = l2_schema_id + l3_suffix
+
+    return [
+        _register(base_id, {
+            "type": "object",
+            "required": ["itemId", field_name],
+            "properties": {
+                "itemId": {"type": "string"},
+                field_name: {"type": field_type},
+            },
+        }, "register base schema"),
+        _register_derived(
+            l2_id, base_id,
+            {"type": "object", "properties": {
+                field_name: {"type": field_type, "const": l2_const},
+            }},
+            f"register L2 with const {l2_const!r}",
+        ),
+        _validate_schema(l2_schema_id, True, "validate L2"),
+        _register_derived(
+            l3_id, l2_id,
+            {"type": "object", "properties": {
+                field_name: {"type": field_type, "const": l3_const},
+            }},
+            f"register L3 with const {l3_const!r}",
+        ),
+        _validate_schema(l3_schema_id, expect_l3_ok, "validate L3"),
+    ]
+
+
+def _make_3level_loosening_steps(
+    ns, field_name, field_type, base_constraint,
+    l2_constraint, l3_constraint, keyword,
+    extra_prop=None, expect_l3_ok=False,
+):
+    """Build teststeps for a 3-level constraint cascade test.
+
+    Base has keyword=base_constraint, L2 tightens to l2_constraint,
+    L3 sets l3_constraint. L2 must pass. L3 result controlled by
+    expect_l3_ok (default False = loosening must fail).
+    """
+    base_id = f"gts://gts.x.test12.{ns}.item.v1~"
+    l2_suffix = f"x.test12._.l2_{ns}.v1~"
+    l3_suffix = f"x.test12._.l3_{ns}.v1~"
+    l2_id = base_id + l2_suffix
+    l3_id = l2_id + l3_suffix
+    l2_schema_id = f"gts.x.test12.{ns}.item.v1~" + l2_suffix
+    l3_schema_id = l2_schema_id + l3_suffix
+
+    base_prop = {"type": field_type, keyword: base_constraint}
+    l2_prop = {"type": field_type, keyword: l2_constraint}
+    l3_prop = {"type": field_type, keyword: l3_constraint}
+    if extra_prop:
+        base_prop.update(extra_prop)
+        l2_prop.update(extra_prop)
+        l3_prop.update(extra_prop)
+
+    return [
+        _register(base_id, {
+            "type": "object",
+            "required": ["itemId", field_name],
+            "properties": {
+                "itemId": {"type": "string"},
+                field_name: base_prop,
+            },
+        }, f"register base with {keyword} {base_constraint}"),
+        _register_derived(
+            l2_id, base_id,
+            {"type": "object", "properties": {
+                field_name: l2_prop,
+            }},
+            f"register L2 tightening {keyword} to {l2_constraint}",
+        ),
+        _validate_schema(l2_schema_id, True, "validate L2"),
+        _register_derived(
+            l3_id, l2_id,
+            {"type": "object", "properties": {
+                field_name: l3_prop,
+            }},
+            f"register L3 loosening {keyword} to {l3_constraint}",
+        ),
+        _validate_schema(l3_schema_id, expect_l3_ok, "validate L3"),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
 class TestCaseTestOp12SchemaValidation_DerivedSchemaFullyMatches(HttpRunner):
     """OP#12 - Schema vs Schema: Derived schema fully matches base"""
     config = Config("OP#12 - Fully Matching Derived Schema").base_url(
@@ -1585,243 +1786,27 @@ class TestCaseTestOp12SchemaValidation_3LevelHierarchy_InvalidCascade(
 
 
 class TestCaseTestOp12_StringConstConflict(HttpRunner):
-    """OP#12 - 3-level: Base string, L2 const "abc", L3 const "def"
-    L3 must fail because it redefines the const value set by L2.
-    """
-    config = Config(
-        "OP#12 - String Const Conflict"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 const "abc", L3 const "def" → must fail."""
+    config = Config("OP#12 - String Const Conflict").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with string field")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.strconst.item.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["itemId", "status"],
-                "properties": {
-                    "itemId": {"type": "string"},
-                    "status": {"type": "string"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema with const abc")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.strconst.item.v1~"
-                    "x.test12._.active_item.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.strconst.item.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "status": {
-                                "type": "string",
-                                "const": "abc"
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.strconst.item.v1~"
-                    "x.test12._.active_item.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 schema with const def")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.strconst.item.v1~"
-                    "x.test12._.active_item.v1~"
-                    "x.test12._.bad_item.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.strconst.item.v1~"
-                            "x.test12._.active_item.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "status": {
-                                "type": "string",
-                                "const": "def"
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.strconst.item.v1~"
-                    "x.test12._.active_item.v1~"
-                    "x.test12._.bad_item.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_const_steps(
+        "strconst", "status", "string", "abc", "def", False)
 
 
 class TestCaseTestOp12_NumericConstConflict(HttpRunner):
-    """OP#12 - 3-level: Base number, L2 const 42, L3 const 99
-    L3 must fail because it redefines the const value set by L2.
-    """
-    config = Config(
-        "OP#12 - Numeric Const Conflict"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 const 42, L3 const 99 → must fail."""
+    config = Config("OP#12 - Numeric Const Conflict").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with number field")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.numconst.metric.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["metricId", "value"],
-                "properties": {
-                    "metricId": {"type": "string"},
-                    "value": {"type": "number"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema with const 42")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.numconst.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.numconst.metric.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "type": "number",
-                                "const": 42
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.numconst.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 schema with const 99")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.numconst.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                    "x.test12._.bad_metric.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.numconst.metric.v1~"
-                            "x.test12._.fixed_metric.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "type": "number",
-                                "const": 99
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.numconst.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                    "x.test12._.bad_metric.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_const_steps(
+        "numconst", "value", "number", 42, 99, False)
 
 
 class TestCaseTestOp12_TypeChangeIntNumberInt(HttpRunner):
@@ -1940,1074 +1925,150 @@ class TestCaseTestOp12_TypeChangeIntNumberInt(HttpRunner):
 
 
 class TestCaseTestOp12_EnumReWidening(HttpRunner):
-    """OP#12 - 3-level: Base enum [a,b,c], L2 narrows to [a,b],
-    L3 re-widens to [a,b,c]. L3 must fail because it reintroduces
-    values that L2 explicitly removed.
-    """
-    config = Config(
-        "OP#12 - Enum Re-Widening"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 narrows enum [a,b], L3 re-widens [a,b,c] → fail."""
+    config = Config("OP#12 - Enum Re-Widening").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with enum field")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.enumwide.role.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["roleId", "level"],
-                "properties": {
-                    "roleId": {"type": "string"},
-                    "level": {
-                        "type": "string",
-                        "enum": ["admin", "editor", "viewer"]
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema narrowing enum")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.enumwide.role.v1~"
-                    "x.test12._.restricted_role.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.enumwide.role.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "level": {
-                                "type": "string",
-                                "enum": ["admin", "editor"]
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.enumwide.role.v1~"
-                    "x.test12._.restricted_role.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 schema re-widening enum")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.enumwide.role.v1~"
-                    "x.test12._.restricted_role.v1~"
-                    "x.test12._.bad_role.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.enumwide.role.v1~"
-                            "x.test12._.restricted_role.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "level": {
-                                "type": "string",
-                                "enum": [
-                                    "admin",
-                                    "editor",
-                                    "viewer"
-                                ]
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.enumwide.role.v1~"
-                    "x.test12._.restricted_role.v1~"
-                    "x.test12._.bad_role.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "enumwide", "level", "string",
+        base_constraint=["admin", "editor", "viewer"],
+        l2_constraint=["admin", "editor"],
+        l3_constraint=["admin", "editor", "viewer"],
+        keyword="enum")
 
 
 class TestCaseTestOp12_MinLengthLoosening(HttpRunner):
-    """OP#12 - 3-level: Base minLength 1, L2 tightens to minLength 5,
-    L3 loosens back to minLength 3. L3 must fail because it loosens
-    a constraint that L2 tightened.
-    """
-    config = Config(
-        "OP#12 - MinLength Loosening"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 tightens minLength 5, L3 loosens to 3 → fail."""
+    config = Config("OP#12 - MinLength Loosening").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with minLength 1")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.minlen.token.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["tokenId", "code"],
-                "properties": {
-                    "tokenId": {"type": "string"},
-                    "code": {
-                        "type": "string",
-                        "minLength": 1
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema tightening minLength to 5")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minlen.token.v1~"
-                    "x.test12._.strict_token.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.minlen.token.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "code": {
-                                "type": "string",
-                                "minLength": 5
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.minlen.token.v1~"
-                    "x.test12._.strict_token.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 schema loosening minLength to 3")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minlen.token.v1~"
-                    "x.test12._.strict_token.v1~"
-                    "x.test12._.bad_token.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.minlen.token.v1~"
-                            "x.test12._.strict_token.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "code": {
-                                "type": "string",
-                                "minLength": 3
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.minlen.token.v1~"
-                    "x.test12._.strict_token.v1~"
-                    "x.test12._.bad_token.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "minlen", "code", "string",
+        base_constraint=1, l2_constraint=5, l3_constraint=3,
+        keyword="minLength")
 
 
 class TestCaseTestOp12_TypeChangeStringToInt(HttpRunner):
-    """OP#12 - 2-level: Base has string field, L2 changes type to
-    integer. Must fail because type change is incompatible.
-    """
-    config = Config(
-        "OP#12 - Type Change string to integer"
-    ).base_url(get_gts_base_url())
+    """OP#12 - Base string, L2 changes to integer → must fail."""
+    config = Config("OP#12 - Type Change string to integer").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
     teststeps = [
-        Step(
-            RunRequest("register base schema with string field")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.typebreak.record.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["recordId", "label"],
-                "properties": {
-                    "recordId": {"type": "string"},
-                    "label": {"type": "string"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
+        _register("gts://gts.x.test12.typebreak.record.v1~", {
+            "type": "object",
+            "required": ["recordId", "label"],
+            "properties": {
+                "recordId": {"type": "string"},
+                "label": {"type": "string"},
+            },
+        }, "register base with string field"),
+        _register_derived(
+            ("gts://gts.x.test12.typebreak.record.v1~"
+             "x.test12._.bad_record.v1~"),
+            "gts://gts.x.test12.typebreak.record.v1~",
+            {"type": "object", "properties": {
+                "label": {"type": "integer"},
+            }},
+            "register L2 changing string to integer",
         ),
-        Step(
-            RunRequest("register L2 schema changing string to integer")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.typebreak.record.v1~"
-                    "x.test12._.bad_record.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.typebreak.record.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "label": {"type": "integer"}
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.typebreak.record.v1~"
-                    "x.test12._.bad_record.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
+        _validate_schema(
+            ("gts.x.test12.typebreak.record.v1~"
+             "x.test12._.bad_record.v1~"),
+            False, "validate L2 should fail",
         ),
     ]
 
 
 class TestCaseTestOp12_BooleanConstConflict(HttpRunner):
-    """OP#12 - 3-level: Base boolean, L2 const true, L3 const false.
-    L3 must fail because it redefines the const value set by L2.
-    """
-    config = Config(
-        "OP#12 - Boolean Const Conflict"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 const true, L3 const false → must fail."""
+    config = Config("OP#12 - Boolean Const Conflict").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with boolean field")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.boolconst.flag.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["flagId", "enabled"],
-                "properties": {
-                    "flagId": {"type": "string"},
-                    "enabled": {"type": "boolean"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema with const true")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.boolconst.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.boolconst.flag.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "enabled": {
-                                "type": "boolean",
-                                "const": True
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.boolconst.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 schema with const false")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.boolconst.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                    "x.test12._.bad_flag.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.boolconst.flag.v1~"
-                            "x.test12._.on_flag.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "enabled": {
-                                "type": "boolean",
-                                "const": False
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.boolconst.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                    "x.test12._.bad_flag.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_const_steps(
+        "boolconst", "enabled", "boolean", True, False, False)
 
 
 class TestCaseTestOp12_MaximumLoosening(HttpRunner):
-    """OP#12 - 3-level: Base max 1000, L2 tightens to max 500,
-    L3 loosens to max 800. L3 must fail because it loosens
-    a constraint that L2 tightened.
-    """
-    config = Config(
-        "OP#12 - Maximum Loosening"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 tightens maximum 500, L3 loosens to 800 → fail."""
+    config = Config("OP#12 - Maximum Loosening").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with max 1000")
-            .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test12.maxloose.counter.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["counterId", "count"],
-                "properties": {
-                    "counterId": {"type": "string"},
-                    "count": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 1000
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema tightening max to 500")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.maxloose.counter.v1~"
-                    "x.test12._.limited_counter.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.maxloose.counter.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "count": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 500
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.maxloose.counter.v1~"
-                    "x.test12._.limited_counter.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 schema loosening max to 800")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.maxloose.counter.v1~"
-                    "x.test12._.limited_counter.v1~"
-                    "x.test12._.bad_counter.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.maxloose.counter.v1~"
-                            "x.test12._.limited_counter.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "count": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 800
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.maxloose.counter.v1~"
-                    "x.test12._.limited_counter.v1~"
-                    "x.test12._.bad_counter.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "maxloose", "count", "integer",
+        base_constraint=1000, l2_constraint=500, l3_constraint=800,
+        keyword="maximum", extra_prop={"minimum": 0})
 
 
 class TestCaseTestOp12_StringConstIdempotent(HttpRunner):
-    """OP#12 - 3-level: Base string, L2 const "abc", L3 const "abc".
-    L3 must PASS because restating the same const value is valid
-    (idempotent constraint restatement).
-    """
-    config = Config(
-        "OP#12 - String Const Idempotent"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 const "abc", L3 restates "abc" → must pass."""
+    config = Config("OP#12 - String Const Idempotent").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with string field")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.stridemp.item.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["itemId", "status"],
-                "properties": {
-                    "itemId": {"type": "string"},
-                    "status": {"type": "string"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema with const abc")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.stridemp.item.v1~"
-                    "x.test12._.fixed_item.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.stridemp.item.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "status": {
-                                "type": "string",
-                                "const": "abc"
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.stridemp.item.v1~"
-                    "x.test12._.fixed_item.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 restating same const abc")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.stridemp.item.v1~"
-                    "x.test12._.fixed_item.v1~"
-                    "x.test12._.same_item.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.stridemp.item.v1~"
-                            "x.test12._.fixed_item.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "status": {
-                                "type": "string",
-                                "const": "abc"
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should pass - same const")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.stridemp.item.v1~"
-                    "x.test12._.fixed_item.v1~"
-                    "x.test12._.same_item.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-    ]
+    teststeps = _make_3level_const_steps(
+        "stridemp", "status", "string", "abc", "abc", True)
 
 
 class TestCaseTestOp12_NumericConstIdempotent(HttpRunner):
-    """OP#12 - 3-level: Base number, L2 const 42, L3 const 42.
-    L3 must PASS because restating the same const value is valid.
-    """
-    config = Config(
-        "OP#12 - Numeric Const Idempotent"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 const 42, L3 restates 42 → must pass."""
+    config = Config("OP#12 - Numeric Const Idempotent").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with number field")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.numidemp.metric.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["metricId", "value"],
-                "properties": {
-                    "metricId": {"type": "string"},
-                    "value": {"type": "number"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema with const 42")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.numidemp.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.numidemp.metric.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "type": "number",
-                                "const": 42
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.numidemp.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 restating same const 42")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.numidemp.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                    "x.test12._.same_metric.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.numidemp.metric.v1~"
-                            "x.test12._.fixed_metric.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "type": "number",
-                                "const": 42
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should pass - same const")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.numidemp.metric.v1~"
-                    "x.test12._.fixed_metric.v1~"
-                    "x.test12._.same_metric.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-    ]
+    teststeps = _make_3level_const_steps(
+        "numidemp", "value", "number", 42, 42, True)
 
 
 class TestCaseTestOp12_BooleanConstIdempotent(HttpRunner):
-    """OP#12 - 3-level: Base boolean, L2 const true, L3 const true.
-    L3 must PASS because restating the same const value is valid.
-    """
-    config = Config(
-        "OP#12 - Boolean Const Idempotent"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 const true, L3 restates true → must pass."""
+    config = Config("OP#12 - Boolean Const Idempotent").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with boolean field")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.boolidemp.flag.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["flagId", "active"],
-                "properties": {
-                    "flagId": {"type": "string"},
-                    "active": {"type": "boolean"}
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema with const true")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.boolidemp.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.boolidemp.flag.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "active": {
-                                "type": "boolean",
-                                "const": True
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.boolidemp.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 restating same const true")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.boolidemp.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                    "x.test12._.still_on.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.boolidemp.flag.v1~"
-                            "x.test12._.on_flag.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "active": {
-                                "type": "boolean",
-                                "const": True
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should pass - same const")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.boolidemp.flag.v1~"
-                    "x.test12._.on_flag.v1~"
-                    "x.test12._.still_on.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-    ]
+    teststeps = _make_3level_const_steps(
+        "boolidemp", "active", "boolean", True, True, True)
 
 
 class TestCaseTestOp12_EnumIdenticalRestatement(HttpRunner):
-    """OP#12 - 3-level: Base enum [a,b,c], L2 narrows to [a,b],
-    L3 restates [a,b]. L3 must PASS because the enum set is
-    identical to L2 (idempotent restatement).
-    """
-    config = Config(
-        "OP#12 - Enum Identical Restatement"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 narrows enum [r,w], L3 restates [r,w] → pass."""
+    config = Config("OP#12 - Enum Identical Restatement").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with enum field")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.enumsame.perm.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["permId", "access"],
-                "properties": {
-                    "permId": {"type": "string"},
-                    "access": {
-                        "type": "string",
-                        "enum": ["read", "write", "admin"]
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 schema narrowing enum")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.enumsame.perm.v1~"
-                    "x.test12._.limited_perm.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.enumsame.perm.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "access": {
-                                "type": "string",
-                                "enum": ["read", "write"]
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.enumsame.perm.v1~"
-                    "x.test12._.limited_perm.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 restating same enum")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.enumsame.perm.v1~"
-                    "x.test12._.limited_perm.v1~"
-                    "x.test12._.same_perm.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.enumsame.perm.v1~"
-                            "x.test12._.limited_perm.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "access": {
-                                "type": "string",
-                                "enum": ["read", "write"]
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should pass - same enum")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.enumsame.perm.v1~"
-                    "x.test12._.limited_perm.v1~"
-                    "x.test12._.same_perm.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "enumsame", "access", "string",
+        base_constraint=["read", "write", "admin"],
+        l2_constraint=["read", "write"],
+        l3_constraint=["read", "write"],
+        keyword="enum", expect_l3_ok=True)
 
 
 class TestCaseTestOp12_RequiredSubsetInOverlay(HttpRunner):
-    """OP#12 - 2-level: Base requires [id, name, email], L2 overlay
-    lists only [id, name] in its own required. Must PASS because
-    allOf means "all of" — the base's required is still enforced
-    via $ref inside allOf. The overlay listing a subset does not
-    remove "email"; the effective required is the union of both.
+    """OP#12 - L2 overlay lists subset of required → must pass
+    (allOf union preserves base required).
     """
     config = Config(
         "OP#12 - Required Subset In Overlay (allOf union)"
@@ -3017,532 +2078,110 @@ class TestCaseTestOp12_RequiredSubsetInOverlay(HttpRunner):
         super().test_start()
 
     teststeps = [
-        Step(
-            RunRequest("register base schema with required fields")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.reqsub.contact.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
+        _register("gts://gts.x.test12.reqsub.contact.v1~", {
+            "type": "object",
+            "required": ["contactId", "name", "email"],
+            "properties": {
+                "contactId": {"type": "string"},
+                "name": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+            },
+        }, "register base with required fields"),
+        _register_derived(
+            ("gts://gts.x.test12.reqsub.contact.v1~"
+             "x.test12._.slim_contact.v1~"),
+            "gts://gts.x.test12.reqsub.contact.v1~",
+            {
                 "type": "object",
-                "required": ["contactId", "name", "email"],
+                "required": ["contactId", "name"],
                 "properties": {
                     "contactId": {"type": "string"},
                     "name": {"type": "string"},
-                    "email": {
-                        "type": "string",
-                        "format": "email"
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
+                },
+            },
+            "register L2 with subset required",
         ),
-        Step(
-            RunRequest("register L2 with subset required in overlay")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.reqsub.contact.v1~"
-                    "x.test12._.slim_contact.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.reqsub.contact.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "required": ["contactId", "name"],
-                        "properties": {
-                            "contactId": {"type": "string"},
-                            "name": {"type": "string"}
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 should pass - allOf preserves base")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.reqsub.contact.v1~"
-                    "x.test12._.slim_contact.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
+        _validate_schema(
+            ("gts.x.test12.reqsub.contact.v1~"
+             "x.test12._.slim_contact.v1~"),
+            True, "validate L2 should pass",
         ),
     ]
 
 
 class TestCaseTestOp12_PatternConflict(HttpRunner):
-    """OP#12 - 2-level: Base has pattern ^[a-z]+$, L2 changes
-    pattern to ^[0-9]+$. Must fail because the patterns are
-    incompatible (no string satisfies both simultaneously).
-    """
-    config = Config(
-        "OP#12 - Pattern Conflict"
-    ).base_url(get_gts_base_url())
+    """OP#12 - Base pattern ^[a-z]+$, L2 pattern ^[0-9]+$ → fail."""
+    config = Config("OP#12 - Pattern Conflict").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
     teststeps = [
-        Step(
-            RunRequest("register base schema with alpha pattern")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.pattern.code.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["codeId", "value"],
-                "properties": {
-                    "codeId": {"type": "string"},
-                    "value": {
-                        "type": "string",
-                        "pattern": "^[a-z]+$"
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
+        _register("gts://gts.x.test12.pattern.code.v1~", {
+            "type": "object",
+            "required": ["codeId", "value"],
+            "properties": {
+                "codeId": {"type": "string"},
+                "value": {"type": "string", "pattern": "^[a-z]+$"},
+            },
+        }, "register base with alpha pattern"),
+        _register_derived(
+            ("gts://gts.x.test12.pattern.code.v1~"
+             "x.test12._.num_code.v1~"),
+            "gts://gts.x.test12.pattern.code.v1~",
+            {"type": "object", "properties": {
+                "value": {"type": "string", "pattern": "^[0-9]+$"},
+            }},
+            "register L2 with numeric pattern",
         ),
-        Step(
-            RunRequest("register L2 with numeric pattern")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.pattern.code.v1~"
-                    "x.test12._.num_code.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.pattern.code.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "type": "string",
-                                "pattern": "^[0-9]+$"
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.pattern.code.v1~"
-                    "x.test12._.num_code.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
+        _validate_schema(
+            "gts.x.test12.pattern.code.v1~x.test12._.num_code.v1~",
+            False, "validate L2 should fail",
         ),
     ]
 
 
 class TestCaseTestOp12_MinItemsLoosening(HttpRunner):
-    """OP#12 - 3-level: Base array minItems 1, L2 tightens to
-    minItems 5, L3 loosens to minItems 2. L3 must fail because
-    it loosens a constraint that L2 tightened.
-    """
-    config = Config(
-        "OP#12 - MinItems Loosening"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 tightens minItems 5, L3 loosens to 2 → fail."""
+    config = Config("OP#12 - MinItems Loosening").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with array minItems 1")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minitems.list.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["listId", "entries"],
-                "properties": {
-                    "listId": {"type": "string"},
-                    "entries": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 1
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 tightening minItems to 5")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minitems.list.v1~"
-                    "x.test12._.strict_list.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.minitems.list.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "entries": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "minItems": 5
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.minitems.list.v1~"
-                    "x.test12._.strict_list.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 loosening minItems to 2")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minitems.list.v1~"
-                    "x.test12._.strict_list.v1~"
-                    "x.test12._.bad_list.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.minitems.list.v1~"
-                            "x.test12._.strict_list.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "entries": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "minItems": 2
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.minitems.list.v1~"
-                    "x.test12._.strict_list.v1~"
-                    "x.test12._.bad_list.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "minitems", "entries", "array",
+        base_constraint=1, l2_constraint=5, l3_constraint=2,
+        keyword="minItems", extra_prop={"items": {"type": "string"}})
 
 
 class TestCaseTestOp12_MinimumLoosening(HttpRunner):
-    """OP#12 - 3-level: Base minimum 0, L2 tightens to minimum 10,
-    L3 loosens to minimum 5. L3 must fail because it loosens
-    a constraint that L2 tightened.
-    """
-    config = Config(
-        "OP#12 - Minimum Loosening"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 tightens minimum 10, L3 loosens to 5 → fail."""
+    config = Config("OP#12 - Minimum Loosening").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with minimum 0")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minloose.temp.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["tempId", "degrees"],
-                "properties": {
-                    "tempId": {"type": "string"},
-                    "degrees": {
-                        "type": "integer",
-                        "minimum": 0
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 tightening minimum to 10")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minloose.temp.v1~"
-                    "x.test12._.warm_temp.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.minloose.temp.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "degrees": {
-                                "type": "integer",
-                                "minimum": 10
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.minloose.temp.v1~"
-                    "x.test12._.warm_temp.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 loosening minimum to 5")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.minloose.temp.v1~"
-                    "x.test12._.warm_temp.v1~"
-                    "x.test12._.bad_temp.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.minloose.temp.v1~"
-                            "x.test12._.warm_temp.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "degrees": {
-                                "type": "integer",
-                                "minimum": 5
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should fail")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.minloose.temp.v1~"
-                    "x.test12._.warm_temp.v1~"
-                    "x.test12._.bad_temp.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", False)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "minloose", "degrees", "integer",
+        base_constraint=0, l2_constraint=10, l3_constraint=5,
+        keyword="minimum")
 
 
 class TestCaseTestOp12_MaxLengthIdempotent(HttpRunner):
-    """OP#12 - 3-level: Base maxLength 200, L2 tightens to 100,
-    L3 restates maxLength 100. L3 must PASS because restating
-    the same constraint value is valid (idempotent).
-    """
-    config = Config(
-        "OP#12 - MaxLength Idempotent"
-    ).base_url(get_gts_base_url())
+    """OP#12 - L2 tightens maxLength 100, L3 restates 100 → pass."""
+    config = Config("OP#12 - MaxLength Idempotent").base_url(
+        get_gts_base_url())
 
     def test_start(self):
         super().test_start()
 
-    teststeps = [
-        Step(
-            RunRequest("register base schema with maxLength 200")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.mlidemp.note.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["noteId", "text"],
-                "properties": {
-                    "noteId": {"type": "string"},
-                    "text": {
-                        "type": "string",
-                        "maxLength": 200
-                    }
-                }
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("register L2 tightening maxLength to 100")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.mlidemp.note.v1~"
-                    "x.test12._.short_note.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.mlidemp.note.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "text": {
-                                "type": "string",
-                                "maxLength": 100
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L2 schema")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.mlidemp.note.v1~"
-                    "x.test12._.short_note.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-        Step(
-            RunRequest("register L3 restating same maxLength 100")
-            .post("/entities")
-            .with_json({
-                "$$id": (
-                    "gts://gts.x.test12.mlidemp.note.v1~"
-                    "x.test12._.short_note.v1~"
-                    "x.test12._.same_note.v1~"
-                ),
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {
-                        "$$ref": (
-                            "gts://gts.x.test12.mlidemp.note.v1~"
-                            "x.test12._.short_note.v1~"
-                        )
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "text": {
-                                "type": "string",
-                                "maxLength": 100
-                            }
-                        }
-                    }
-                ]
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-        ),
-        Step(
-            RunRequest("validate L3 schema should pass - same value")
-            .post("/validate-schema")
-            .with_json({
-                "schema_id": (
-                    "gts.x.test12.mlidemp.note.v1~"
-                    "x.test12._.short_note.v1~"
-                    "x.test12._.same_note.v1~"
-                )
-            })
-            .validate()
-            .assert_equal("status_code", 200)
-            .assert_equal("body.ok", True)
-        ),
-    ]
+    teststeps = _make_3level_loosening_steps(
+        "mlidemp", "text", "string",
+        base_constraint=200, l2_constraint=100, l3_constraint=100,
+        keyword="maxLength", expect_l3_ok=True)
 
 
 class TestCaseTestOp12_ArrayTypeChange(HttpRunner):
@@ -3673,6 +2312,272 @@ class TestCaseTestOp12_ArrayTypeChange(HttpRunner):
             .assert_equal("body.ok", False)
         ),
     ]
+
+
+class TestCaseTestOp12_ConstraintDropMaxLength(HttpRunner):
+    """OP#12 - Derived drops maxLength → must fail."""
+    config = Config("OP#12 - Constraint Drop maxLength").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "ml", "code", "string", "maxLength", 100)
+
+
+class TestCaseTestOp12_ConstraintDropMinimum(HttpRunner):
+    """OP#12 - Derived drops minimum → must fail."""
+    config = Config("OP#12 - Constraint Drop minimum").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "min", "score", "number", "minimum", 0)
+
+
+class TestCaseTestOp12_ConstraintDropEnum(HttpRunner):
+    """OP#12 - Derived drops enum → must fail."""
+    config = Config("OP#12 - Constraint Drop enum").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "enum", "status", "string", "enum", ["a", "b", "c"])
+
+
+class TestCaseTestOp12_ConstraintDropConst(HttpRunner):
+    """OP#12 - Derived drops const → must fail."""
+    config = Config("OP#12 - Constraint Drop const").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "const", "version", "string", "const", "fixed")
+
+
+class TestCaseTestOp12_ConstraintDropPattern(HttpRunner):
+    """OP#12 - Derived drops pattern → must fail."""
+    config = Config("OP#12 - Constraint Drop pattern").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "pat", "slug", "string", "pattern", "^[a-z]+$")
+
+
+class TestCaseTestOp12_ConstraintDropItems(HttpRunner):
+    """OP#12 - Derived drops items constraint → must fail."""
+    config = Config("OP#12 - Constraint Drop items").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "items", "tags", "array", "items",
+        {"type": "string", "maxLength": 50})
+
+
+class TestCaseTestOp12_ConstraintDropMaximum(HttpRunner):
+    """OP#12 - Derived drops maximum → must fail."""
+    config = Config("OP#12 - Constraint Drop maximum").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "max", "amount", "number", "maximum", 1000)
+
+
+class TestCaseTestOp12_ConstraintDropMinLength(HttpRunner):
+    """OP#12 - Derived drops minLength → must fail."""
+    config = Config("OP#12 - Constraint Drop minLength").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "minl", "name", "string", "minLength", 5)
+
+
+class TestCaseTestOp12_ConstraintDropMinItems(HttpRunner):
+    """OP#12 - Derived drops minItems → must fail."""
+    config = Config("OP#12 - Constraint Drop minItems").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_2level_constraint_drop_steps(
+        "mni", "items", "array", "minItems", 1,
+        extra_base={"items": {"type": "string"}})
+
+
+class TestCaseTestOp12_AdditionalPropertiesLoosened(HttpRunner):
+    """OP#12 - Base AP false, derived sets AP true → must fail."""
+    config = Config("OP#12 - additionalProperties Loosened").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.ap.loose.v1~", {
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        }, "register closed base schema"),
+        _register_derived(
+            "gts://gts.x.test12.ap.loose.v1~x.test12._.opened.v1~",
+            "gts://gts.x.test12.ap.loose.v1~",
+            {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "additionalProperties": True,
+            },
+            "register derived setting AP true",
+        ),
+        _validate_schema(
+            "gts.x.test12.ap.loose.v1~x.test12._.opened.v1~",
+            False, "validate should fail - AP loosened",
+        ),
+    ]
+
+
+class TestCaseTestOp12_AdditionalPropertiesOmitted(HttpRunner):
+    """OP#12 - Base AP false, derived omits AP → must fail."""
+    config = Config("OP#12 - additionalProperties Omitted").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.ap.omit.v1~", {
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        }, "register closed base schema"),
+        _register_derived(
+            "gts://gts.x.test12.ap.omit.v1~x.test12._.no_ap.v1~",
+            "gts://gts.x.test12.ap.omit.v1~",
+            {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            },
+            "register derived omitting AP",
+        ),
+        _validate_schema(
+            "gts.x.test12.ap.omit.v1~x.test12._.no_ap.v1~",
+            False, "validate should fail - AP omitted",
+        ),
+    ]
+
+
+class TestCaseTestOp12_RequiredDroppedViaEmptyRequired(HttpRunner):
+    """OP#12 - Derived has required:[] in overlay → must pass
+    (allOf union preserves base required).
+    """
+    config = Config("OP#12 - Required Dropped Via Empty List").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.req.drop.v1~", {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+            },
+        }, "register base with required fields"),
+        _register_derived(
+            "gts://gts.x.test12.req.drop.v1~x.test12._.empty_req.v1~",
+            "gts://gts.x.test12.req.drop.v1~",
+            {
+                "type": "object",
+                "required": [],
+                "properties": {"extra": {"type": "string"}},
+            },
+            "register derived with empty required",
+        ),
+        _validate_schema(
+            "gts.x.test12.req.drop.v1~x.test12._.empty_req.v1~",
+            True, "validate should pass - empty overlay is ok",
+        ),
+    ]
+
+
+class TestCaseTestOp12_RequiredFieldRemoval(HttpRunner):
+    """OP#12 - Derived lists subset of required in overlay → must
+    pass (allOf union keeps all base required).
+    """
+    config = Config("OP#12 - Required Field Removal").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.req.rm.v1~", {
+            "type": "object",
+            "required": ["id", "name", "email"],
+            "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+            },
+        }, "register base schema"),
+        _register_derived(
+            "gts://gts.x.test12.req.rm.v1~x.test12._.less_req.v1~",
+            "gts://gts.x.test12.req.rm.v1~",
+            {
+                "type": "object",
+                "required": ["id", "name"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "name": {"type": "string"},
+                },
+            },
+            "register derived removing required email",
+        ),
+        _validate_schema(
+            "gts.x.test12.req.rm.v1~x.test12._.less_req.v1~",
+            True, "validate should pass - allOf union keeps all",
+        ),
+    ]
+
+
+class TestCaseTestOp12_AllOfIntersectionNotOverride(HttpRunner):
+    """OP#12 - 3-level: L2 maxLength 100, L3 overlay maxLength 150.
+    L3 must fail because overlay loosens L2's constraint.
+    """
+    config = Config("OP#12 - allOf Intersection Not Override").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = _make_3level_loosening_steps(
+        "allof_inter", "desc", "string",
+        base_constraint=200, l2_constraint=100, l3_constraint=150,
+        keyword="maxLength",
+    )
 
 
 class TestCaseValidateEntity_ValidInstance(HttpRunner):
