@@ -1,3 +1,5 @@
+"""Tests for x-gts-ref validation: prefix enforcement, JSON Pointer resolution, and combinator semantics."""
+
 from .conftest import get_gts_base_url
 from httprunner import HttpRunner, Config, Step, RunRequest
 
@@ -7,6 +9,7 @@ class TestCaseXGtsRef_PrefixAndSelfRef(HttpRunner):
     config = Config("x-gts-ref: prefix and self-ref").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref prefix and self-reference test steps."""
         super().test_start()
 
     teststeps = [
@@ -165,6 +168,7 @@ class TestCaseXGtsRef_JsonPointer(HttpRunner):
     config = Config("x-gts-ref: json-pointer resolution").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref JSON Pointer resolution test steps."""
         super().test_start()
 
     teststeps = [
@@ -255,6 +259,7 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
     config = Config("x-gts-ref: malformed GTS ID").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref malformed GTS ID test steps."""
         super().test_start()
 
     teststeps = [
@@ -385,6 +390,7 @@ class TestCaseXGtsRef_OneOf(HttpRunner):
     config = Config("x-gts-ref: oneOf combinator").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref oneOf combinator test steps."""
         super().test_start()
 
     teststeps = [
@@ -592,6 +598,7 @@ class TestCaseXGtsRef_AnyOf(HttpRunner):
     config = Config("x-gts-ref: anyOf combinator").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref anyOf combinator test steps."""
         super().test_start()
 
     teststeps = [
@@ -733,6 +740,7 @@ class TestCaseXGtsRef_AllOf(HttpRunner):
     config = Config("x-gts-ref: allOf combinator").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref allOf combinator test steps."""
         super().test_start()
 
     teststeps = [
@@ -814,9 +822,11 @@ class TestCaseXGtsRef_AllOf(HttpRunner):
             .assert_equal("status_code", 200)
             .assert_equal("body.ok", True)
         ),
-        # Register allOf schema with two incompatible branches
+        # Intentionally unsatisfiable: requires ref to match both target_a AND target_b
+        # prefixes simultaneously, which is impossible for a single GTS ID.
+        # Tests that allOf correctly rejects when not all branches can be satisfied.
         Step(
-            RunRequest("register strict allOf schema - two branches")
+            RunRequest("register strict allOf schema - two incompatible branches")
             .post("/entities")
             .with_json({
                 "$$id": "gts://gts.x.testref_comb._.allof_strict.v1~",
@@ -866,6 +876,7 @@ class TestCaseXGtsRef_NestedCombinators(HttpRunner):
     config = Config("x-gts-ref: nested combinators").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run x-gts-ref nested combinator test steps."""
         super().test_start()
 
     teststeps = [
