@@ -1634,7 +1634,7 @@ class TestCaseOp13_TraitsInvalid_CyclingRef_SelfRef(HttpRunner):
             "register standalone trait schema",
         ),
         _register(
-            "gts://gts.x.test13.cyc.self.event.v1~",
+            "gts://gts.x.test13.cyc.selfevt.v1~",
             {
                 "type": "object",
                 "x-gts-traits-schema": {
@@ -1663,10 +1663,10 @@ class TestCaseOp13_TraitsInvalid_CyclingRef_SelfRef(HttpRunner):
         ),
         _register_derived(
             (
-                "gts://gts.x.test13.cyc.self.event.v1~"
+                "gts://gts.x.test13.cyc.selfevt.v1~"
                 "x.test13._.cyc_self_leaf.v1~"
             ),
-            "gts://gts.x.test13.cyc.self.event.v1~",
+            "gts://gts.x.test13.cyc.selfevt.v1~",
             {
                 "type": "object",
                 "x-gts-traits": {
@@ -1677,7 +1677,7 @@ class TestCaseOp13_TraitsInvalid_CyclingRef_SelfRef(HttpRunner):
         ),
         _validate_schema(
             (
-                "gts.x.test13.cyc.self.event.v1~"
+                "gts.x.test13.cyc.selfevt.v1~"
                 "x.test13._.cyc_self_leaf.v1~"
             ),
             False,
