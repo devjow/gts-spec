@@ -380,7 +380,627 @@ class TestCaseXGtsRef_WrongGtsFormat(HttpRunner):
         ),
     ]
 
+class TestCaseXGtsRef_OneOf(HttpRunner):
+    """x-gts-ref: oneOf combinator - exactly one branch must match"""
+    config = Config("x-gts-ref: oneOf combinator").base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register two target schemas
+        Step(
+            RunRequest("register target_a schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_a.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_b.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register instances of each target
+        Step(
+            RunRequest("register target_a instance")
+            .post("/entities")
+            .with_json({
+                "kind": "a",
+                "id": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b instance")
+            .post("/entities")
+            .with_json({
+                "kind": "b",
+                "id": "gts.x.testref_comb._.target_b.v1~x.vendor._.b1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register "other" schema + instance for negative test
+        Step(
+            RunRequest("register other schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.other.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register other instance")
+            .post("/entities")
+            .with_json({
+                "id": "gts.x.testref_comb._.other.v1~x.vendor._.o1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register oneOf schema: ref must match exactly one of target_a or target_b
+        Step(
+            RunRequest("register oneOf schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.oneof_ref.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "oneOf": [
+                            {"x-gts-ref": "gts.x.testref_comb._.target_a.v1~"},
+                            {"x-gts-ref": "gts.x.testref_comb._.target_b.v1~"},
+                        ]
+                    }
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Valid instance matching first branch
+        Step(
+            RunRequest("register valid oneOf instance - first branch")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+                "id": "gts.x.testref_comb._.oneof_ref.v1~x.vendor._.i1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate oneOf instance - first branch should pass")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.oneof_ref.v1~x.vendor._.i1.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Valid instance matching second branch
+        Step(
+            RunRequest("register valid oneOf instance - second branch")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_b.v1~x.vendor._.b1.v1.0",
+                "id": "gts.x.testref_comb._.oneof_ref.v1~x.vendor._.i2.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate oneOf instance - second branch should pass")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.oneof_ref.v1~x.vendor._.i2.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Invalid instance matching neither branch
+        Step(
+            RunRequest("register invalid oneOf instance - no branch matches")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.other.v1~x.vendor._.o1.v1.0",
+                "id": "gts.x.testref_comb._.oneof_ref.v1~x.vendor._.i3.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate oneOf instance - no branch matches should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.oneof_ref.v1~x.vendor._.i3.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+        # Overlapping patterns: register schema where both branches match
+        Step(
+            RunRequest("register oneOf schema with overlapping patterns")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.oneof_overlap.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "oneOf": [
+                            {"x-gts-ref": "gts.x.testref_comb.*"},
+                            {"x-gts-ref": "gts.x.testref_comb._.target_a.v1~"},
+                        ]
+                    }
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register instance matching both overlapping branches")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+                "id": "gts.x.testref_comb._.oneof_overlap.v1~x.vendor._.i1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate overlapping oneOf instance - both match should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.oneof_overlap.v1~x.vendor._.i1.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+    ]
+
+
+class TestCaseXGtsRef_AnyOf(HttpRunner):
+    """x-gts-ref: anyOf combinator - at least one branch must match"""
+    config = Config("x-gts-ref: anyOf combinator").base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register shared target schemas and instances
+        Step(
+            RunRequest("register target_a schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_a.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_b.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_a instance")
+            .post("/entities")
+            .with_json({
+                "kind": "a",
+                "id": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b instance")
+            .post("/entities")
+            .with_json({
+                "kind": "b",
+                "id": "gts.x.testref_comb._.target_b.v1~x.vendor._.b1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register other schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.other.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register other instance")
+            .post("/entities")
+            .with_json({
+                "id": "gts.x.testref_comb._.other.v1~x.vendor._.o1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register anyOf schema
+        Step(
+            RunRequest("register anyOf schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.anyof_ref.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "anyOf": [
+                            {"x-gts-ref": "gts.x.testref_comb._.target_a.v1~"},
+                            {"x-gts-ref": "gts.x.testref_comb._.target_b.v1~"},
+                        ]
+                    }
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Valid instance matching one branch
+        Step(
+            RunRequest("register valid anyOf instance")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+                "id": "gts.x.testref_comb._.anyof_ref.v1~x.vendor._.i1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate anyOf instance - should pass")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.anyof_ref.v1~x.vendor._.i1.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Invalid instance matching no branch
+        Step(
+            RunRequest("register invalid anyOf instance")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.other.v1~x.vendor._.o1.v1.0",
+                "id": "gts.x.testref_comb._.anyof_ref.v1~x.vendor._.i2.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate anyOf instance - no branch matches should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.anyof_ref.v1~x.vendor._.i2.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+    ]
+
+
+class TestCaseXGtsRef_AllOf(HttpRunner):
+    """x-gts-ref: allOf combinator - all branches must match"""
+    config = Config("x-gts-ref: allOf combinator").base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register shared target schemas and instances
+        Step(
+            RunRequest("register target_a schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_a.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_b.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_a instance")
+            .post("/entities")
+            .with_json({
+                "kind": "a",
+                "id": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register allOf schema with single branch
+        Step(
+            RunRequest("register allOf schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.allof_ref.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "allOf": [
+                            {"x-gts-ref": "gts.x.testref_comb._.target_a.v1~"},
+                        ]
+                    }
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Valid instance matching the branch
+        Step(
+            RunRequest("register valid allOf instance")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+                "id": "gts.x.testref_comb._.allof_ref.v1~x.vendor._.i1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate allOf instance - should pass")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.allof_ref.v1~x.vendor._.i1.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Register allOf schema with two incompatible branches
+        Step(
+            RunRequest("register strict allOf schema - two branches")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.allof_strict.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "allOf": [
+                            {"x-gts-ref": "gts.x.testref_comb._.target_a.v1~"},
+                            {"x-gts-ref": "gts.x.testref_comb._.target_b.v1~"},
+                        ]
+                    }
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Instance matches target_a but not target_b — allOf requires both
+        Step(
+            RunRequest("register invalid allOf instance - one branch fails")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_a.v1~x.vendor._.a1.v1.0",
+                "id": "gts.x.testref_comb._.allof_strict.v1~x.vendor._.i1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate allOf instance - one branch fails should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.allof_strict.v1~x.vendor._.i1.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+    ]
+
+
+class TestCaseXGtsRef_NestedCombinators(HttpRunner):
+    """x-gts-ref: nested combinators - allOf wrapping oneOf"""
+    config = Config("x-gts-ref: nested combinators").base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register shared target schemas and instances
+        Step(
+            RunRequest("register target_a schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_a.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.target_b.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {"kind": {"type": "string"}},
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register target_b instance")
+            .post("/entities")
+            .with_json({
+                "kind": "b",
+                "id": "gts.x.testref_comb._.target_b.v1~x.vendor._.b1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register other schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.other.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register other instance")
+            .post("/entities")
+            .with_json({
+                "id": "gts.x.testref_comb._.other.v1~x.vendor._.o1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register schema with allOf wrapping oneOf
+        Step(
+            RunRequest("register nested combinator schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testref_comb._.nested.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "allOf": [
+                            {
+                                "oneOf": [
+                                    {"x-gts-ref": "gts.x.testref_comb._.target_a.v1~"},
+                                    {"x-gts-ref": "gts.x.testref_comb._.target_b.v1~"},
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Valid instance - matches one oneOf branch
+        Step(
+            RunRequest("register valid nested combinator instance")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.target_b.v1~x.vendor._.b1.v1.0",
+                "id": "gts.x.testref_comb._.nested.v1~x.vendor._.i1.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate nested combinator instance - should pass")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.nested.v1~x.vendor._.i1.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Invalid instance - matches no oneOf branch
+        Step(
+            RunRequest("register invalid nested combinator instance")
+            .post("/entities")
+            .with_json({
+                "ref": "gts.x.testref_comb._.other.v1~x.vendor._.o1.v1.0",
+                "id": "gts.x.testref_comb._.nested.v1~x.vendor._.i2.v1.0",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate nested combinator instance - no match should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "gts.x.testref_comb._.nested.v1~x.vendor._.i2.v1.0"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+    ]
+
+
 if __name__ == "__main__":
     TestCaseXGtsRef_PrefixAndSelfRef().test_start()
     TestCaseXGtsRef_JsonPointer().test_start()
     TestCaseXGtsRef_WrongGtsFormat().test_start()
+    TestCaseXGtsRef_OneOf().test_start()
+    TestCaseXGtsRef_AnyOf().test_start()
+    TestCaseXGtsRef_AllOf().test_start()
+    TestCaseXGtsRef_NestedCombinators().test_start()
