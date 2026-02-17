@@ -1034,9 +1034,38 @@ class TestCaseOp13_TraitsInvalid_RefBasedMissingTrait(HttpRunner):
         super().test_start()
 
     teststeps = [
-        # Reuse the standalone trait schemas registered above
-        # (tests run in sequence within a session)
-        # Register a new base using $ref traits
+        _register(
+            "gts://gts.x.test13.traits.retention.v1~",
+            {
+                "type": "object",
+                "properties": {
+                    "retention": {
+                        "description": (
+                            "ISO 8601 retention duration."
+                        ),
+                        "type": "string",
+                        "default": "P30D",
+                    },
+                },
+            },
+            "register standalone RetentionTrait schema",
+        ),
+        _register(
+            "gts://gts.x.test13.traits.topic.v1~",
+            {
+                "type": "object",
+                "properties": {
+                    "topicRef": {
+                        "description": "Topic reference.",
+                        "type": "string",
+                        "x-gts-ref": (
+                            "gts.x.core.events.topic.v1~"
+                        ),
+                    },
+                },
+            },
+            "register standalone TopicTrait schema",
+        ),
         _register(
             "gts://gts.x.test13.refm.event.v1~",
             {
