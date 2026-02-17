@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.7
+> **VERSION**: GTS specification draft, version 0.8Beta2
 
 # Global Type System (GTS) Specification
 
@@ -73,6 +73,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
   - [8.1 Single-segment regex (type or instance)](#81-single-segment-regex-type-or-instance)
   - [8.2 Chained identifier regex](#82-chained-identifier-regex)
 - [9. Reference Implementation Recommendations](#9-reference-implementation-recommendations)
+  - [9.7 Schema Traits (`x-gts-traits-schema` / `x-gts-traits`)](#97---schema-traits-x-gts-traits-schema--x-gts-traits)
 - [10. Collecting Identifiers with Wildcards](#10-collecting-identifiers-with-wildcards)
 - [11. JSON and JSON Schema Conventions](#11-json-and-json-schema-conventions)
 - [12. Notes and Best Practices](#12-notes-and-best-practices)
@@ -92,6 +93,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.6 | Introduced well-known/anonymous instance term; defined field naming implementation recommendations |
 | 0.7 | BREAKING: require $ref value to start with 'gts://'; strict rules for schema/instance distinction; prohibiting well-known instances without left-hand type segments  |
 | 0.8beta1 | Add OP#12 (schema vs schema validation), unified validation endpoint (/validate-entity), and clarify instance -> schema and schema -> schema validation semantics for chained GTS IDs |
+| 0.8beta2 | Introduce schema traits (`x-gts-traits-schema`, `x-gts-traits`) and OP#13 (schema traits validation) |
 
 ## 1. Motivation
 
@@ -1211,9 +1213,9 @@ See working examples under `./examples/events`:
 - Well-known topics: `./examples/events/instances/gts.x.core.events.topic.v1~x.commerce.orders.orders.v1.0.json`
 - Anonymous events: `./examples/events/instances/gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1~.examples.json`
 
-### 9.2 - GTS operations (OP#1 - OP#12):
+### 9.2 - GTS operations (OP#1 - OP#13):
 
-Implement and expose all operations OP#1–OP#12 listed above and add appropriate unit tests.
+Implement and expose all operations OP#1–OP#13 listed above and add appropriate unit tests.
 
 - **OP#1 - ID Validation**: Verify identifier syntax
 - **OP#2 - ID Extraction**: Extract identifiers from JSON objects or JSON Schema documents
@@ -1227,6 +1229,7 @@ Implement and expose all operations OP#1–OP#12 listed above and add appropriat
 - **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
 - **OP#12 - Schema vs Schema Validation**: Validate derived schemas against their base schemas. Derived schemas using `allOf` must conform to all constraints defined in their parent schemas throughout the inheritance hierarchy. This ensures type safety in schema extension and prevents constraint violations in multi-level schema hierarchies.
+- **OP#13 - Schema Traits Validation**: Validate schema traits (`x-gts-traits-schema` / `x-gts-traits`). See section 9.7 for full semantics and validation rules.
 
 ### 9.3 - GTS entities registration
 
@@ -1264,17 +1267,202 @@ Implementation notes:
   - For nested paths (e.g., `./properties/id`), resolve the pointer accordinly to the field path in the JSON Schema document.
 
 
-### 9.7 - YAML support
+### 9.7 - Schema Traits (`x-gts-traits-schema` / `x-gts-traits`)
+
+**OP#13 - Schema Traits Validation**: Validate that `x-gts-traits` values in derived schemas conform to the `x-gts-traits-schema` defined in their base schemas. Verify that all trait properties are resolved (via direct value or `default`) and that trait values satisfy the trait schema constraints. Trait values set by an ancestor are immutable — descendants MUST NOT override them with a different value. Both `x-gts-traits-schema` and `x-gts-traits` are schema-only keywords and MUST NOT appear in instances. `x-gts-traits-schema` MUST have `"type": "object"`. Uses the same validation endpoints (`/validate-schema`, `/validate-entity`).
+
+A **schema trait** is a semantic annotation attached to a GTS schema that describes **system behaviour** for processing instances of that type. Traits are not part of the object data model — they do not define instance properties. Instead, they configure cross-cutting concerns such as:
+
+- **Retention rules** — how long instances of this type are kept (e.g., object TTL)
+- **Processing directives** — how attributes should be handled (e.g., PII masking, indexing hints)
+- **Association links** — linking schemas to related entities (e.g., associating an event type with its topic/stream)
+
+#### 9.7.1 Keywords
+
+Two JSON Schema annotation keywords are used together:
+
+| Keyword | JSON type | Purpose | Typical location |
+|---------|-----------|---------|------------------|
+| **`x-gts-traits-schema`** | JSON Schema (object) | Defines the **shape** of the trait — property names, types, constraints, and `default` values | Base / ancestor schemas |
+| **`x-gts-traits`** | Plain JSON object | Provides concrete **values** for the trait properties | Derived (leaf) schemas; may also appear alongside `x-gts-traits-schema` in the same schema |
+
+**Schema-only keywords:** Both `x-gts-traits-schema` and `x-gts-traits` are **schema annotation keywords** and MUST only appear in JSON Schema documents (documents with `$schema`). They MUST NOT appear in instance documents. Implementations MUST reject instances that contain these keywords.
+
+A single schema MAY contain both keywords. This is explicitly allowed and useful when a mid-level schema defines new trait properties (`x-gts-traits-schema`) while also resolving traits inherited from its parent (`x-gts-traits`).
+
+**`x-gts-traits-schema`** MUST be a valid JSON Schema with `"type": "object"` at its top level. Implementations MUST reject trait schemas that declare a different type (e.g., `"type": "integer"`). It MAY be:
+
+- An **inline** schema object
+- A **`$ref`** to a standalone, reusable trait schema
+- A **composition** using `allOf`, `oneOf`, `anyOf`, etc.
+
+Standard JSON Schema `$ref` resolution rules apply — implementations MUST NOT invent a custom reference mechanism.
+
+**`x-gts-traits`** is a plain JSON object of concrete values. Constraint keywords like `const` belong in `x-gts-traits-schema` (the trait schema), not in `x-gts-traits` (the trait values).
+
+#### 9.7.2 Trait schema definition (`x-gts-traits-schema`)
+
+A base schema declares the trait schema — the shape and defaults of all trait fields. This tells the system which traits exist and what values are acceptable.
+
+**Inline definition:**
+
+```json
+{
+  "$id": "gts://gts.x.core.events.type.v1~",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "x-gts-traits-schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "topicRef": {
+        "description": "GTS ID of the topic/stream where events of this type are published.",
+        "type": "string",
+        "x-gts-ref": "gts.x.core.events.topic.v1~",
+        "default": "gts.x.core.events.topic.v1~x.core._.default.v1"
+      },
+      "retention": {
+        "description": "ISO 8601 duration for event retention.",
+        "type": "string",
+        "default": "P30D"
+      }
+    }
+  },
+  "properties": { "..." : {} }
+}
+```
+
+**`$ref` to reusable trait schemas:**
+
+A platform MAY publish standalone, reusable trait schemas (e.g., `RetentionTrait`, `TopicTrait`, `PIITrait`). Base schemas reference them via standard `$ref`:
+
+```json
+{
+  "$id": "gts://gts.x.core.events.type.v1~",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "x-gts-traits-schema": {
+    "type": "object",
+    "allOf": [
+      { "$ref": "gts://gts.x.core.traits.retention.v1~" },
+      { "$ref": "gts://gts.x.core.traits.topic.v1~" }
+    ]
+  },
+  "properties": { "..." : {} }
+}
+```
+
+Where each referenced trait schema is a standalone JSON Schema registered as a GTS entity:
+
+```json
+{
+  "$id": "gts://gts.x.core.traits.retention.v1~",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "retention": {
+      "description": "ISO 8601 duration for data retention.",
+      "type": "string",
+      "default": "P30D"
+    }
+  }
+}
+```
+
+#### 9.7.3 Trait values in derived schemas (`x-gts-traits`)
+
+Derived schemas **resolve** (configure) trait values by providing a plain JSON object via `x-gts-traits`. Trait values MUST be valid against the effective trait schema derived from the inheritance chain as defined below.
+
+```json
+{
+  "$id": "gts://gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+  "allOf": [
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
+    {
+      "x-gts-traits": {
+        "topicRef": "gts.x.core.events.topic.v1~x.commerce._.orders.v1",
+        "retention": "P90D"
+      }
+    }
+  ]
+}
+```
+
+#### 9.7.4 Both keywords in the same schema
+
+A mid-level schema MAY extend the trait schema while also providing values for inherited traits:
+
+```json
+{
+  "$id": "gts://gts.x.core.events.type.v1~x.core.audit.event.v1~",
+  "allOf": [
+    { "$ref": "gts://gts.x.core.events.type.v1~" },
+    {
+      "x-gts-traits-schema": {
+        "type": "object",
+        "properties": {
+          "auditRetention": {
+            "description": "Retention override for audit compliance.",
+            "type": "string",
+            "default": "P365D"
+          }
+        }
+      },
+      "x-gts-traits": {
+        "topicRef": "gts.x.core.events.topic.v1~x.core._.audit.v1"
+      }
+    }
+  ]
+}
+```
+
+#### 9.7.5 Trait merge and validation semantics (normative)
+
+Traits MUST follow standard JSON Schema practices. The key rule is that **the registry MUST treat trait schemas as normal JSON Schemas** and MUST rely on standard JSON Schema composition and `$ref` semantics (especially `allOf`) rather than inventing a bespoke merge algorithm.
+
+Given an inheritance chain `S₀ → S₁ → … → Sₙ`:
+
+- **Trait schema merge**
+  - The registry MUST build an *effective trait schema* by composing all encountered `x-gts-traits-schema` values using JSON Schema `allOf`.
+  - Any `$ref` appearing inside `x-gts-traits-schema` MUST be resolved using standard JSON Schema `$ref` resolution rules (base URI resolution + JSON Pointer fragments).
+  - Derived schemas MAY further constrain (narrow) traits by adding additional schema constraints in their `x-gts-traits-schema` (this is naturally enforced by `allOf`).
+  - **Immutable defaults:** `default` values declared in an ancestor's `x-gts-traits-schema` MUST NOT be changed by a descendant's `x-gts-traits-schema`. If a descendant redeclares a trait property with a different `default`, schema validation MUST fail.
+
+- **Trait value merge**
+  - The registry MUST build an *effective traits object* by collecting all `x-gts-traits` objects encountered in the chain (left-to-right).
+  - **Immutable-once-set:** Once a trait key is assigned a concrete value by a schema in the chain, **no descendant may override it**. If a descendant's `x-gts-traits` provides a different value for a key already set by an ancestor, schema validation MUST fail. Providing the **same** value is permitted (idempotent).
+  - Defaults declared in the effective trait schema SHOULD be used as normal JSON Schema defaults to produce a complete effective traits object.
+
+- **Validation**
+  - The registry MUST validate the effective traits object against the effective trait schema using standard JSON Schema validation.
+  - If the effective trait schema cannot be satisfied (e.g., contradictory constraints introduced across the chain), schema validation MUST fail.
+  - If a trait is required by the effective trait schema (i.e., not covered by a default) but is not provided by any `x-gts-traits` in the chain, schema validation MUST fail for concrete (leaf) schemas.
+  - If a descendant attempts to override a trait value already set by an ancestor with a different value, schema validation MUST fail.
+
+**Example — immutable trait override (failure):**
+
+Consider a 3-level chain: `base → audit_event → most_derived_event`.
+
+- `audit_event` sets `x-gts-traits.topicRef` to `gts.x.core.events.topic.v1~x.core._.audit.v1`
+- `most_derived_event` attempts to set `x-gts-traits.topicRef` to `gts.x.core.events.topic.v1~x.core._.notification.v1`
+
+Validation of `most_derived_event` MUST fail because `topicRef` was already set by `audit_event` and the new value differs.
+
+These rules are intentionally aligned with existing JSON Schema composition semantics and GTS schema chaining practices.
+
+See `./examples/events/schemas/` for complete examples demonstrating trait definition and resolution.
+
+### 9.8 - YAML support
 
 Accept and emit both JSON and YAML (`.json`, `.yaml`, `.yml`) for schemas and instances.
 Ensure conversions are lossless; preserve `$id`, `gtsId`, and custom extensions like `x-gts-ref`.
 
-### 9.8 - TypeSpec support
+### 9.9 - TypeSpec support
 
 Support generating JSON Schema and OpenAPI from TypeSpec while preserving GTS semantics.
 Ensure generated schemas use GTS identifiers as `$id` for types and keep any `x-gts-*` extensions intact.
 
-### 9.9 - UUID as object IDs
+### 9.10 - UUID as object IDs
 
 Support UUIDs (format: `uuid`) for instance `id` fields.
 
