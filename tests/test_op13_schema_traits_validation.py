@@ -1609,3 +1609,180 @@ class TestCaseOp13_TraitsValid_ConstNarrowingLeafMatches(HttpRunner):
             "validate leaf - retention matches const",
         ),
     ]
+
+
+class TestCaseOp13_TraitsInvalid_CyclingRef_SelfRef(HttpRunner):
+    """OP#13 - Traits: x-gts-traits-schema refs itself."""
+    config = Config(
+        "OP#13 - Traits Self-Referencing Ref"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.cyc.selfref.v1~",
+            {
+                "type": "object",
+                "properties": {
+                    "retention": {
+                        "type": "string",
+                    },
+                },
+            },
+            "register standalone trait schema",
+        ),
+        _register(
+            "gts://gts.x.test13.cyc.self.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "allOf": [
+                        {
+                            "$$ref": (
+                                "gts://gts.x.test13"
+                                ".cyc.selfref.v1~"
+                            ),
+                        },
+                        {
+                            "$$ref": (
+                                "gts://gts.x.test13"
+                                ".cyc.selfref.v1~"
+                            ),
+                        },
+                    ],
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base with self-cycling trait ref",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.cyc.self.event.v1~"
+                "x.test13._.cyc_self_leaf.v1~"
+            ),
+            "gts://gts.x.test13.cyc.self.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits": {
+                    "retention": "P30D",
+                },
+            },
+            "register derived with traits",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.cyc.self.event.v1~"
+                "x.test13._.cyc_self_leaf.v1~"
+            ),
+            False,
+            "validate should fail - cycling ref in traits-schema",
+        ),
+    ]
+
+
+class TestCaseOp13_TraitsInvalid_CyclingRef_TwoNode(HttpRunner):
+    """OP#13 - Traits: trait schema A refs B, B refs A."""
+    config = Config(
+        "OP#13 - Traits Two-Node Ref Cycle"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.cyc2.trait_a.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test13"
+                            ".cyc2.trait_b.v1~"
+                        ),
+                    },
+                ],
+                "properties": {
+                    "retention": {"type": "string"},
+                },
+            },
+            "register trait schema A referencing B",
+        ),
+        _register(
+            "gts://gts.x.test13.cyc2.trait_b.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test13"
+                            ".cyc2.trait_a.v1~"
+                        ),
+                    },
+                ],
+                "properties": {
+                    "topicRef": {
+                        "type": "string",
+                        "x-gts-ref": (
+                            "gts.x.core.events.topic.v1~"
+                        ),
+                    },
+                },
+            },
+            "register trait schema B referencing A",
+        ),
+        _register(
+            "gts://gts.x.test13.cyc2.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "allOf": [
+                        {
+                            "$$ref": (
+                                "gts://gts.x.test13"
+                                ".cyc2.trait_a.v1~"
+                            ),
+                        },
+                    ],
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base with cycling trait refs",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.cyc2.event.v1~"
+                "x.test13._.cyc2_leaf.v1~"
+            ),
+            "gts://gts.x.test13.cyc2.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits": {
+                    "retention": "P30D",
+                    "topicRef": (
+                        "gts.x.core.events.topic.v1~"
+                        "x.test13._.orders.v1"
+                    ),
+                },
+            },
+            "register derived with traits",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.cyc2.event.v1~"
+                "x.test13._.cyc2_leaf.v1~"
+            ),
+            False,
+            "validate should fail - two-node cycle in trait refs",
+        ),
+    ]

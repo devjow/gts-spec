@@ -3342,5 +3342,233 @@ class TestCaseValidateEntity_BaseSchemaNoParent(HttpRunner):
     ]
 
 
+class TestCaseOp12_CyclingRef_SelfReference(HttpRunner):
+    """OP#12 - Cycling ref: schema references itself"""
+    config = Config("OP#12 - Self-Referencing Ref").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test12.cycle.self.v1~",
+            {
+                "type": "object",
+                "required": ["id"],
+                "properties": {"id": {"type": "string"}},
+            },
+            "register base schema",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test12.cycle.self.v1~"
+                "x.test12._.self_ref.v1~"
+            ),
+            "gts://gts.x.test12.cycle.self.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test12.cycle.self.v1~"
+                            "x.test12._.self_ref.v1~"
+                        ),
+                    },
+                ],
+            },
+            "register derived that refs itself",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test12.cycle.self.v1~"
+                "x.test12._.self_ref.v1~"
+            ),
+            False,
+            "validate should fail - self-referencing cycle",
+        ),
+    ]
+
+
+class TestCaseOp12_CyclingRef_TwoNodeCycle(HttpRunner):
+    """OP#12 - Cycling ref: A refs B, B refs A"""
+    config = Config("OP#12 - Two-Node Ref Cycle").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test12.cycle2.base.v1~",
+            {
+                "type": "object",
+                "required": ["id"],
+                "properties": {"id": {"type": "string"}},
+            },
+            "register root base schema",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test12.cycle2.base.v1~"
+                "x.test12._.node_a.v1~"
+            ),
+            "gts://gts.x.test12.cycle2.base.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test12.cycle2.base.v1~"
+                            "x.test12._.node_b.v1~"
+                        ),
+                    },
+                ],
+            },
+            "register node A referencing node B",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test12.cycle2.base.v1~"
+                "x.test12._.node_b.v1~"
+            ),
+            "gts://gts.x.test12.cycle2.base.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test12.cycle2.base.v1~"
+                            "x.test12._.node_a.v1~"
+                        ),
+                    },
+                ],
+            },
+            "register node B referencing node A",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test12.cycle2.base.v1~"
+                "x.test12._.node_a.v1~"
+            ),
+            False,
+            "validate node A should fail - two-node cycle",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test12.cycle2.base.v1~"
+                "x.test12._.node_b.v1~"
+            ),
+            False,
+            "validate node B should fail - two-node cycle",
+        ),
+    ]
+
+
+class TestCaseOp12_CyclingRef_ThreeNodeCycle(HttpRunner):
+    """OP#12 - Cycling ref: A -> B -> C -> A"""
+    config = Config("OP#12 - Three-Node Ref Cycle").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test12.cycle3.base.v1~",
+            {
+                "type": "object",
+                "required": ["id"],
+                "properties": {"id": {"type": "string"}},
+            },
+            "register root base schema",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test12.cycle3.base.v1~"
+                "x.test12._.node_a.v1~"
+            ),
+            "gts://gts.x.test12.cycle3.base.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test12.cycle3.base.v1~"
+                            "x.test12._.node_b.v1~"
+                        ),
+                    },
+                ],
+            },
+            "register node A referencing node B",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test12.cycle3.base.v1~"
+                "x.test12._.node_b.v1~"
+            ),
+            "gts://gts.x.test12.cycle3.base.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test12.cycle3.base.v1~"
+                            "x.test12._.node_c.v1~"
+                        ),
+                    },
+                ],
+            },
+            "register node B referencing node C",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test12.cycle3.base.v1~"
+                "x.test12._.node_c.v1~"
+            ),
+            "gts://gts.x.test12.cycle3.base.v1~",
+            {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.test12.cycle3.base.v1~"
+                            "x.test12._.node_a.v1~"
+                        ),
+                    },
+                ],
+            },
+            "register node C referencing node A",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test12.cycle3.base.v1~"
+                "x.test12._.node_a.v1~"
+            ),
+            False,
+            "validate node A should fail - three-node cycle",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test12.cycle3.base.v1~"
+                "x.test12._.node_b.v1~"
+            ),
+            False,
+            "validate node B should fail - three-node cycle",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test12.cycle3.base.v1~"
+                "x.test12._.node_c.v1~"
+            ),
+            False,
+            "validate node C should fail - three-node cycle",
+        ),
+    ]
+
+
 if __name__ == "__main__":
     TestCaseTestOp12SchemaValidation_DerivedSchemaFullyMatches().test_start()
