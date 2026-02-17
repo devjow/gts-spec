@@ -471,6 +471,7 @@ class TestCaseXGtsRef_OneOf(HttpRunner):
                 "type": "object",
                 "required": ["ref"],
                 "properties": {
+                    "id": {"type": "string"},
                     "ref": {
                         "type": "string",
                         "oneOf": [
@@ -557,6 +558,7 @@ class TestCaseXGtsRef_OneOf(HttpRunner):
                 "type": "object",
                 "required": ["ref"],
                 "properties": {
+                    "id": {"type": "string"},
                     "ref": {
                         "type": "string",
                         "oneOf": [
@@ -677,6 +679,7 @@ class TestCaseXGtsRef_AnyOf(HttpRunner):
                 "type": "object",
                 "required": ["ref"],
                 "properties": {
+                    "id": {"type": "string"},
                     "ref": {
                         "type": "string",
                         "anyOf": [
@@ -789,6 +792,7 @@ class TestCaseXGtsRef_AllOf(HttpRunner):
                 "type": "object",
                 "required": ["ref"],
                 "properties": {
+                    "id": {"type": "string"},
                     "ref": {
                         "type": "string",
                         "allOf": [
@@ -834,6 +838,7 @@ class TestCaseXGtsRef_AllOf(HttpRunner):
                 "type": "object",
                 "required": ["ref"],
                 "properties": {
+                    "id": {"type": "string"},
                     "ref": {
                         "type": "string",
                         "allOf": [
@@ -945,6 +950,7 @@ class TestCaseXGtsRef_NestedCombinators(HttpRunner):
                 "type": "object",
                 "required": ["ref"],
                 "properties": {
+                    "id": {"type": "string"},
                     "ref": {
                         "type": "string",
                         "allOf": [
