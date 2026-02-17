@@ -215,6 +215,166 @@ class TestCaseTestOp12SchemaValidation_AdditionalPropertiesFalse(
     ]
 
 
+class TestCaseTestOp12SchemaValidation_CloseOpenModel(HttpRunner):
+    """OP#12 - Schema vs Schema: Derived closes an open model"""
+    config = Config(
+        "OP#12 - Close Open Model"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register open base schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.test12.close.user.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["userId", "email"],
+                "properties": {
+                    "userId": {"type": "string", "format": "uuid"},
+                    "email": {"type": "string", "format": "email"}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register derived schema closing model")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.test12.close.user.v1~"
+                    "x.test12._.closed_user.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.test12.close.user.v1~"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "userId": {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            "email": {
+                                "type": "string",
+                                "format": "email"
+                            }
+                        },
+                        "additionalProperties": False
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate derived schema should pass")
+            .post("/validate-schema")
+            .with_json({
+                "schema_id": (
+                    "gts.x.test12.close.user.v1~"
+                    "x.test12._.closed_user.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+    ]
+
+
+class TestCaseTestOp12SchemaValidation_NestedAdditionalPropertiesFalse(
+    HttpRunner
+):
+    """OP#12 - Schema vs Schema: Nested additionalProperties false"""
+    config = Config(
+        "OP#12 - Nested additionalProperties False"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base schema with closed nested object")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.test12.nested.closed.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["profileId", "profile"],
+                "properties": {
+                    "profileId": {"type": "string"},
+                    "profile": {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {
+                            "name": {"type": "string"},
+                            "age": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "additionalProperties": False
+                    }
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register derived schema adding nested property")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.test12.nested.closed.v1~"
+                    "x.test12._.profile_plus.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.test12.nested.closed.v1~"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "profile": {
+                                "type": "object",
+                                "properties": {
+                                    "nickname": {"type": "string"}
+                                }
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate derived schema should fail")
+            .post("/validate-schema")
+            .with_json({
+                "schema_id": (
+                    "gts.x.test12.nested.closed.v1~"
+                    "x.test12._.profile_plus.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+    ]
+
+
 class TestCaseTestOp12SchemaValidation_InvalidDerivedSchema(
     HttpRunner
 ):
@@ -428,7 +588,9 @@ class TestCaseTestOp12SchemaValidation_DerivedSchemaConstraintLoosen(
 
 
 class TestCaseTestOp12SchemaValidation_DerivedSpecifiesObject(HttpRunner):
-    """OP#12 - Schema vs Schema: Base has object property, derived specifies it"""
+    """OP#12 - Schema vs Schema: Base has object property,
+    derived specifies it
+    """
     config = Config(
         "OP#12 - Derived Specifies Base Object Property"
     ).base_url(
@@ -647,7 +809,9 @@ class TestCaseTestOp12SchemaValidation_3Level_L2SpecifiesObject(HttpRunner):
 class TestCaseTestOp12SchemaValidation_3Level_L2CompositionL3NestedObject(
     HttpRunner
 ):
-    """OP#12 - 3-level: L2 specifies object as composition, L3 specifies nested"""
+    """OP#12 - 3-level: L2 specifies object as composition,
+    L3 specifies nested
+    """
     config = Config(
         "OP#12 - 3-Level L2 Composition L3 Nested Object"
     ).base_url(
@@ -3507,6 +3671,601 @@ class TestCaseTestOp12_ArrayTypeChange(HttpRunner):
             .validate()
             .assert_equal("status_code", 200)
             .assert_equal("body.ok", False)
+        ),
+    ]
+
+
+class TestCaseValidateEntity_ValidInstance(HttpRunner):
+    """Validate Entity: Valid instance through unified endpoint"""
+    config = Config("Validate Entity - Valid Instance").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base event schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity.events.type.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["id", "type", "occurredAt"],
+                "properties": {
+                    "type": {"type": "string"},
+                    "id": {"type": "string", "format": "uuid"},
+                    "occurredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "payload": {"type": "object"}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register derived event schema")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.testentity.events.type.v1~"
+                    "x.testentity.events.user_created.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.testentity.events.type.v1~"},
+                    {
+                        "type": "object",
+                        "required": ["payload"],
+                        "properties": {
+                            "type": {
+                                "const": (
+                                    "gts.x.testentity.events.type.v1~"
+                                    "x.testentity.events.user_created.v1~"
+                                )
+                            },
+                            "payload": {
+                                "type": "object",
+                                "required": ["userId", "email"],
+                                "properties": {
+                                    "userId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register valid instance")
+            .post("/entities")
+            .with_json({
+                "type": (
+                    "gts.x.testentity.events.type.v1~"
+                    "x.testentity.events.user_created.v1~"
+                ),
+                "id": (
+                    "gts.x.testentity.events.type.v1~"
+                    "x.testentity.events.user_created.v1~"
+                    "x.testentity._.event1.v1"
+                ),
+                "occurredAt": "2025-09-20T18:35:00Z",
+                "payload": {
+                    "userId": "550e8400-e29b-41d4-a716-446655440000",
+                    "email": "user@example.com"
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate instance via unified endpoint")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity.events.type.v1~"
+                    "x.testentity.events.user_created.v1~"
+                    "x.testentity._.event1.v1"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "instance")
+        ),
+    ]
+
+
+class TestCaseValidateEntity_InvalidInstance(HttpRunner):
+    """Validate Entity: Invalid instance through unified endpoint"""
+    config = Config("Validate Entity - Invalid Instance").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity2.data.record.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["recordId", "value"],
+                "properties": {
+                    "recordId": {"type": "string"},
+                    "value": {"type": "number", "minimum": 0}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register invalid instance missing required field")
+            .post("/entities")
+            .with_json({
+                "type": "gts.x.testentity2.data.record.v1~",
+                "id": (
+                    "gts.x.testentity2.data.record.v1~"
+                    "x.testentity2._.record1.v1"
+                ),
+                "recordId": "REC-001"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate invalid instance should fail")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity2.data.record.v1~"
+                    "x.testentity2._.record1.v1"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+            .assert_equal("body.entity_type", "instance")
+        ),
+    ]
+
+
+class TestCaseValidateEntity_ValidSchema(HttpRunner):
+    """Validate Entity: Valid derived schema through unified endpoint"""
+    config = Config("Validate Entity - Valid Schema").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity3.core.entity.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["entityId"],
+                "properties": {
+                    "entityId": {"type": "string", "format": "uuid"},
+                    "description": {"type": "string", "maxLength": 200}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register valid derived schema")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.testentity3.core.entity.v1~"
+                    "x.testentity3._.document.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.testentity3.core.entity.v1~"},
+                    {
+                        "type": "object",
+                        "required": ["title"],
+                        "properties": {
+                            "title": {"type": "string", "maxLength": 100},
+                            "description": {
+                                "type": "string",
+                                "maxLength": 150
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate schema via unified endpoint")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity3.core.entity.v1~"
+                    "x.testentity3._.document.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "schema")
+        ),
+    ]
+
+
+class TestCaseValidateEntity_InvalidSchema(HttpRunner):
+    """Validate Entity: Invalid derived schema through unified endpoint"""
+    config = Config("Validate Entity - Invalid Schema").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity4.base.item.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["itemId"],
+                "properties": {
+                    "itemId": {"type": "string"},
+                    "size": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                    }
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register invalid derived schema loosening constraints")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.testentity4.base.item.v1~"
+                    "x.testentity4._.bad_item.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.testentity4.base.item.v1~"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "size": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 200
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate schema should fail")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity4.base.item.v1~"
+                    "x.testentity4._.bad_item.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+            .assert_equal("body.entity_type", "schema")
+        ),
+    ]
+
+
+class TestCaseValidateEntity_3LevelSchemaHierarchy(HttpRunner):
+    """Validate Entity: 3-level schema hierarchy validation"""
+    config = Config("Validate Entity - 3-Level Schema").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register level 1 base schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity5.base.message.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["msgId"],
+                "properties": {
+                    "msgId": {"type": "string"},
+                    "content": {"type": "string", "maxLength": 1000}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register level 2 schema")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.testentity5.base.message.v1~"
+                    "x.testentity5._.email.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.testentity5.base.message.v1~"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "maxLength": 500}
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate level 2 schema")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity5.base.message.v1~"
+                    "x.testentity5._.email.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "schema")
+        ),
+        Step(
+            RunRequest("register level 3 schema")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.testentity5.base.message.v1~"
+                    "x.testentity5._.email.v1~x.testentity5._.notification.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {
+                        "$$ref": (
+                            "gts://gts.x.testentity5.base.message.v1~"
+                            "x.testentity5._.email.v1~"
+                        )
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "maxLength": 200}
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate level 3 schema")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity5.base.message.v1~"
+                    "x.testentity5._.email.v1~x.testentity5._.notification.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "schema")
+        ),
+    ]
+
+
+class TestCaseValidateEntity_MixedInstanceAndSchema(HttpRunner):
+    """Validate Entity: Test both instance and schema in same test"""
+    config = Config(
+        "Validate Entity - Mixed Instance and Schema"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity6.product.base.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["productId", "name"],
+                "properties": {
+                    "productId": {"type": "string"},
+                    "name": {"type": "string"},
+                    "price": {"type": "number", "minimum": 0}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("register derived schema")
+            .post("/entities")
+            .with_json({
+                "$$id": (
+                    "gts://gts.x.testentity6.product.base.v1~"
+                    "x.testentity6._.digital.v1~"
+                ),
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.testentity6.product.base.v1~"},
+                    {
+                        "type": "object",
+                        "required": ["downloadUrl"],
+                        "properties": {
+                            "downloadUrl": {
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate derived schema")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity6.product.base.v1~"
+                    "x.testentity6._.digital.v1~"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "schema")
+        ),
+        Step(
+            RunRequest("register instance of derived schema")
+            .post("/entities")
+            .with_json({
+                "type": (
+                    "gts.x.testentity6.product.base.v1~"
+                    "x.testentity6._.digital.v1~"
+                ),
+                "id": (
+                    "gts.x.testentity6.product.base.v1~"
+                    "x.testentity6._.digital.v1~x.testentity6._.prod1.v1"
+                ),
+                "productId": "PROD-001",
+                "name": "eBook",
+                "price": 9.99,
+                "downloadUrl": "https://example.com/download/ebook"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate instance")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": (
+                    "gts.x.testentity6.product.base.v1~"
+                    "x.testentity6._.digital.v1~x.testentity6._.prod1.v1"
+                )
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "instance")
+        ),
+    ]
+
+
+class TestCaseValidateEntity_NotFound(HttpRunner):
+    """Validate Entity: Non-existent entity"""
+    config = Config("Validate Entity - Not Found").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("validate non-existent entity")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": "gts.x.nonexistent.entity.type.v1~"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+        ),
+    ]
+
+
+class TestCaseValidateEntity_BaseSchemaNoParent(HttpRunner):
+    """Validate Entity: Base schema with no parent (always valid)"""
+    config = Config(
+        "Validate Entity - Base Schema No Parent"
+    ).base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("register base schema without parent")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.testentity7.standalone.schema.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"}
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        Step(
+            RunRequest("validate base schema should succeed")
+            .post("/validate-entity")
+            .with_json({
+                "entity_id": "gts.x.testentity7.standalone.schema.v1~"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.entity_type", "schema")
         ),
     ]
 
