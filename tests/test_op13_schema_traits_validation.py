@@ -589,8 +589,8 @@ class TestCaseOp13_TraitsInvalid_3Level_MissingInLeaf(HttpRunner):
     ]
 
 
-class TestCaseOp13_TraitsValid_OverrideInChain(HttpRunner):
-    """OP#13 - Traits: rightmost x-gts-traits value overrides earlier one"""
+class TestCaseOp13_TraitsInvalid_OverrideInChain(HttpRunner):
+    """OP#13 - Traits: descendant cannot override ancestor trait value."""
     config = Config("OP#13 - Override In Chain").base_url(get_gts_base_url())
 
     def test_start(self):
@@ -653,8 +653,181 @@ class TestCaseOp13_TraitsValid_OverrideInChain(HttpRunner):
                 "x.test13._.mid_ovr.v1~"
                 "x.test13._.leaf_ovr.v1~"
             ),
+            False,
+            "validate should fail - trait override not allowed",
+        ),
+    ]
+
+
+class TestCaseOp13_TraitsInvalid_OverrideTopicRef3Level(HttpRunner):
+    """OP#13 - Traits: 3-level chain, leaf overrides topicRef.
+
+    Mid-level sets topicRef to audit topic, leaf tries notification
+    topic. Validation must fail (immutable-once-set).
+    """
+    config = Config(
+        "OP#13 - Override TopicRef 3-Level"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.ovt.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "properties": {
+                        "topicRef": {
+                            "type": "string",
+                            "x-gts-ref": (
+                                "gts.x.core.events.topic.v1~"
+                            ),
+                        },
+                        "retention": {
+                            "type": "string",
+                            "default": "P30D",
+                        },
+                    },
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base with topicRef + retention traits",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.ovt.event.v1~"
+                "x.test13._.audit_evt.v1~"
+            ),
+            "gts://gts.x.test13.ovt.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits": {
+                    "topicRef": (
+                        "gts.x.core.events.topic.v1~"
+                        "x.core._.audit.v1"
+                    ),
+                },
+            },
+            "register mid-level setting topicRef=audit",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.ovt.event.v1~"
+                "x.test13._.audit_evt.v1~"
+            ),
             True,
-            "validate leaf - override is valid",
+            "validate mid-level - topicRef set",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.ovt.event.v1~"
+                "x.test13._.audit_evt.v1~"
+                "x.test13._.most_derived.v1~"
+            ),
+            (
+                "gts://gts.x.test13.ovt.event.v1~"
+                "x.test13._.audit_evt.v1~"
+            ),
+            {
+                "type": "object",
+                "x-gts-traits": {
+                    "topicRef": (
+                        "gts.x.core.events.topic.v1~"
+                        "x.core._.notification.v1"
+                    ),
+                },
+            },
+            "register leaf overriding topicRef=notification",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.ovt.event.v1~"
+                "x.test13._.audit_evt.v1~"
+                "x.test13._.most_derived.v1~"
+            ),
+            False,
+            "validate should fail - topicRef override not allowed",
+        ),
+    ]
+
+
+class TestCaseOp13_TraitsInvalid_ChangeDefaultInMid(HttpRunner):
+    """OP#13 - Traits: mid-level changes default set by base.
+
+    Base sets retention default=P30D. Mid-level redeclares
+    retention default=P90D. Validation must fail - defaults
+    set by ancestor are immutable.
+    """
+    config = Config(
+        "OP#13 - Change Default In Mid-Level"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.chdfl.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "properties": {
+                        "retention": {
+                            "type": "string",
+                            "default": "P30D",
+                        },
+                        "topicRef": {
+                            "type": "string",
+                        },
+                    },
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base with retention default=P30D",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.chdfl.event.v1~"
+                "x.test13._.chdfl_mid.v1~"
+            ),
+            "gts://gts.x.test13.chdfl.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "properties": {
+                        "retention": {
+                            "type": "string",
+                            "default": "P90D",
+                        },
+                    },
+                },
+                "x-gts-traits": {
+                    "topicRef": (
+                        "gts.x.core.events.topic.v1~"
+                        "x.test13._.orders.v1"
+                    ),
+                },
+            },
+            "register mid changing retention default to P90D",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.chdfl.event.v1~"
+                "x.test13._.chdfl_mid.v1~"
+            ),
+            False,
+            "validate should fail - default override not allowed",
         ),
     ]
 
@@ -1813,5 +1986,162 @@ class TestCaseOp13_TraitsInvalid_CyclingRef_TwoNode(HttpRunner):
             ),
             False,
             "validate should fail - two-node cycle in trait refs",
+        ),
+    ]
+
+class TestCaseOp13_TraitsInvalid_TraitsSchemaNotObject(HttpRunner):
+    """OP#13 - Traits: x-gts-traits-schema with type=integer.
+
+    Must fail - trait schema must have type=object.
+    """
+    config = Config(
+        "OP#13 - Traits Schema Not Object"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.tsnobj.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "integer",
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base with type=integer trait schema",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.tsnobj.event.v1~"
+                "x.test13._.tsnobj_leaf.v1~"
+            ),
+            "gts://gts.x.test13.tsnobj.event.v1~",
+            {
+                "type": "object",
+            },
+            "register derived",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.tsnobj.event.v1~"
+                "x.test13._.tsnobj_leaf.v1~"
+            ),
+            False,
+            "validate should fail - trait schema type is integer",
+        ),
+    ]
+
+
+class TestCaseOp13_TraitsInvalid_TraitsInInstance(HttpRunner):
+    """OP#13 - Traits: x-gts-traits in an instance document.
+
+    Trait keywords are schema-only. Instance with x-gts-traits
+    must fail entity validation.
+    """
+    config = Config(
+        "OP#13 - Traits In Instance"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.tinst.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "properties": {
+                        "retention": {
+                            "type": "string",
+                            "default": "P30D",
+                        },
+                    },
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base schema with traits",
+        ),
+        _register_derived(
+            (
+                "gts://gts.x.test13.tinst.event.v1~"
+                "x.test13._.tinst_leaf.v1~"
+            ),
+            "gts://gts.x.test13.tinst.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits": {
+                    "retention": "P90D",
+                },
+            },
+            "register derived with traits",
+        ),
+        _validate_schema(
+            (
+                "gts.x.test13.tinst.event.v1~"
+                "x.test13._.tinst_leaf.v1~"
+            ),
+            True,
+            "validate derived schema - ok",
+        ),
+        _validate_entity(
+            (
+                "gts.x.test13.tinst.event.v1~"
+                "x.test13._.tinst_leaf.v1~"
+            ),
+            False,
+            "validate entity should fail - traits in instance",
+        ),
+    ]
+
+
+class TestCaseOp13_TraitsInvalid_TraitsSchemaInInstance(HttpRunner):
+    """OP#13 - Traits: x-gts-traits-schema in an instance document.
+
+    Trait keywords are schema-only. Instance with
+    x-gts-traits-schema must fail entity validation.
+    """
+    config = Config(
+        "OP#13 - Traits Schema In Instance"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register(
+            "gts://gts.x.test13.tsinst.event.v1~",
+            {
+                "type": "object",
+                "x-gts-traits-schema": {
+                    "type": "object",
+                    "properties": {
+                        "retention": {
+                            "type": "string",
+                            "default": "P30D",
+                        },
+                    },
+                },
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+            "register base schema with traits-schema",
+        ),
+        _validate_entity(
+            "gts.x.test13.tsinst.event.v1~",
+            False,
+            "validate entity should fail - traits-schema in instance",
         ),
     ]

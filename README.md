@@ -1229,7 +1229,7 @@ Implement and expose all operations OP#1–OP#13 listed above and add appropriat
 - **OP#10 - Query Execution**: Filter identifier collections using the GTS query language
 - **OP#11 - Attribute Access**: Retrieve property values and metadata using the attribute selector (`@`)
 - **OP#12 - Schema vs Schema Validation**: Validate derived schemas against their base schemas. Derived schemas using `allOf` must conform to all constraints defined in their parent schemas throughout the inheritance hierarchy. This ensures type safety in schema extension and prevents constraint violations in multi-level schema hierarchies.
-- **OP#13 - Schema Traits Validation**: Validate that `x-gts-traits` values in derived schemas conform to the `x-gts-traits-schema` defined in their base schemas. Verify that all trait properties are resolved (via `const`/direct value or `default`) and that trait values satisfy the trait schema constraints. Uses the same validation endpoints (`/validate-schema`, `/validate-entity`).
+- **OP#13 - Schema Traits Validation**: Validate schema traits (`x-gts-traits-schema` / `x-gts-traits`). See section 9.7 for full semantics and validation rules.
 
 ### 9.3 - GTS entities registration
 
@@ -1269,6 +1269,8 @@ Implementation notes:
 
 ### 9.7 - Schema Traits (`x-gts-traits-schema` / `x-gts-traits`)
 
+**OP#13 - Schema Traits Validation**: Validate that `x-gts-traits` values in derived schemas conform to the `x-gts-traits-schema` defined in their base schemas. Verify that all trait properties are resolved (via direct value or `default`) and that trait values satisfy the trait schema constraints. Trait values set by an ancestor are immutable — descendants MUST NOT override them with a different value. Both `x-gts-traits-schema` and `x-gts-traits` are schema-only keywords and MUST NOT appear in instances. `x-gts-traits-schema` MUST have `"type": "object"`. Uses the same validation endpoints (`/validate-schema`, `/validate-entity`).
+
 A **schema trait** is a semantic annotation attached to a GTS schema that describes **system behaviour** for processing instances of that type. Traits are not part of the object data model — they do not define instance properties. Instead, they configure cross-cutting concerns such as:
 
 - **Retention rules** — how long instances of this type are kept (e.g., object TTL)
@@ -1284,15 +1286,19 @@ Two JSON Schema annotation keywords are used together:
 | **`x-gts-traits-schema`** | JSON Schema (object) | Defines the **shape** of the trait — property names, types, constraints, and `default` values | Base / ancestor schemas |
 | **`x-gts-traits`** | Plain JSON object | Provides concrete **values** for the trait properties | Derived (leaf) schemas; may also appear alongside `x-gts-traits-schema` in the same schema |
 
+**Schema-only keywords:** Both `x-gts-traits-schema` and `x-gts-traits` are **schema annotation keywords** and MUST only appear in JSON Schema documents (documents with `$schema`). They MUST NOT appear in instance documents. Implementations MUST reject instances that contain these keywords.
+
 A single schema MAY contain both keywords. This is explicitly allowed and useful when a mid-level schema defines new trait properties (`x-gts-traits-schema`) while also resolving traits inherited from its parent (`x-gts-traits`).
 
-**`x-gts-traits-schema`** MUST be a valid JSON Schema. It MAY be:
+**`x-gts-traits-schema`** MUST be a valid JSON Schema with `"type": "object"` at its top level. Implementations MUST reject trait schemas that declare a different type (e.g., `"type": "integer"`). It MAY be:
 
 - An **inline** schema object
 - A **`$ref`** to a standalone, reusable trait schema
 - A **composition** using `allOf`, `oneOf`, `anyOf`, etc.
 
 Standard JSON Schema `$ref` resolution rules apply — implementations MUST NOT invent a custom reference mechanism.
+
+**`x-gts-traits`** is a plain JSON object of concrete values. Constraint keywords like `const` belong in `x-gts-traits-schema` (the trait schema), not in `x-gts-traits` (the trait values).
 
 #### 9.7.2 Trait schema definition (`x-gts-traits-schema`)
 
@@ -1420,15 +1426,27 @@ Given an inheritance chain `S₀ → S₁ → … → Sₙ`:
   - The registry MUST build an *effective trait schema* by composing all encountered `x-gts-traits-schema` values using JSON Schema `allOf`.
   - Any `$ref` appearing inside `x-gts-traits-schema` MUST be resolved using standard JSON Schema `$ref` resolution rules (base URI resolution + JSON Pointer fragments).
   - Derived schemas MAY further constrain (narrow) traits by adding additional schema constraints in their `x-gts-traits-schema` (this is naturally enforced by `allOf`).
+  - **Immutable defaults:** `default` values declared in an ancestor's `x-gts-traits-schema` MUST NOT be changed by a descendant's `x-gts-traits-schema`. If a descendant redeclares a trait property with a different `default`, schema validation MUST fail.
 
 - **Trait value merge**
-  - The registry MUST build an *effective traits object* by shallow-merging all encountered `x-gts-traits` objects in chain order (left-to-right), where the **rightmost** value for a given trait key wins.
+  - The registry MUST build an *effective traits object* by collecting all `x-gts-traits` objects encountered in the chain (left-to-right).
+  - **Immutable-once-set:** Once a trait key is assigned a concrete value by a schema in the chain, **no descendant may override it**. If a descendant's `x-gts-traits` provides a different value for a key already set by an ancestor, schema validation MUST fail. Providing the **same** value is permitted (idempotent).
   - Defaults declared in the effective trait schema SHOULD be used as normal JSON Schema defaults to produce a complete effective traits object.
 
 - **Validation**
   - The registry MUST validate the effective traits object against the effective trait schema using standard JSON Schema validation.
   - If the effective trait schema cannot be satisfied (e.g., contradictory constraints introduced across the chain), schema validation MUST fail.
   - If a trait is required by the effective trait schema (i.e., not covered by a default) but is not provided by any `x-gts-traits` in the chain, schema validation MUST fail for concrete (leaf) schemas.
+  - If a descendant attempts to override a trait value already set by an ancestor with a different value, schema validation MUST fail.
+
+**Example — immutable trait override (failure):**
+
+Consider a 3-level chain: `base → audit_event → most_derived_event`.
+
+- `audit_event` sets `x-gts-traits.topicRef` to `gts.x.core.events.topic.v1~x.core._.audit.v1`
+- `most_derived_event` attempts to set `x-gts-traits.topicRef` to `gts.x.core.events.topic.v1~x.core._.notification.v1`
+
+Validation of `most_derived_event` MUST fail because `topicRef` was already set by `audit_event` and the new value differs.
 
 These rules are intentionally aligned with existing JSON Schema composition semantics and GTS schema chaining practices.
 
