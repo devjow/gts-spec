@@ -2580,6 +2580,173 @@ class TestCaseTestOp12_AllOfIntersectionNotOverride(HttpRunner):
     )
 
 
+class TestCaseTestOp12_EnumValueReplacement(HttpRunner):
+    """OP#12 - 2-level: Base enum [a,b], derived changes to [a,d].
+    Must fail because 'd' is not in the base enum and 'b' is removed.
+    """
+    config = Config("OP#12 - Enum Value Replacement").base_url(
+        get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.enumrepl.item.v1~", {
+            "type": "object",
+            "required": ["itemId", "category"],
+            "properties": {
+                "itemId": {"type": "string"},
+                "category": {
+                    "type": "string",
+                    "enum": ["a", "b"],
+                },
+            },
+        }, "register base with enum [a, b]"),
+        _register_derived(
+            ("gts://gts.x.test12.enumrepl.item.v1~"
+             "x.test12._.replaced.v1~"),
+            "gts://gts.x.test12.enumrepl.item.v1~",
+            {"type": "object", "properties": {
+                "category": {
+                    "type": "string",
+                    "enum": ["a", "d"],
+                },
+            }},
+            "register derived with enum [a, d]",
+        ),
+        _validate_schema(
+            ("gts.x.test12.enumrepl.item.v1~"
+             "x.test12._.replaced.v1~"),
+            False,
+            "validate should fail - enum value replaced",
+        ),
+    ]
+
+
+class TestCaseTestOp12_RequiredPropertyGainsNullability(HttpRunner):
+    """OP#12 - 2-level: Base has required string property, derived
+    widens its type to ["string", "null"]. Must fail because a
+    required property that was non-nullable in the base cannot
+    become nullable in the derived schema.
+    """
+    config = Config(
+        "OP#12 - Required Property Gains Nullability"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.nullable.rec.v1~", {
+            "type": "object",
+            "required": ["recId", "name"],
+            "properties": {
+                "recId": {"type": "string"},
+                "name": {"type": "string"},
+            },
+        }, "register base with required non-nullable name"),
+        _register_derived(
+            ("gts://gts.x.test12.nullable.rec.v1~"
+             "x.test12._.null_name.v1~"),
+            "gts://gts.x.test12.nullable.rec.v1~",
+            {"type": "object", "properties": {
+                "name": {"type": ["string", "null"]},
+            }},
+            "register derived allowing null for name",
+        ),
+        _validate_schema(
+            ("gts.x.test12.nullable.rec.v1~"
+             "x.test12._.null_name.v1~"),
+            False,
+            "validate should fail - nullability added",
+        ),
+    ]
+
+
+class TestCaseTestOp12_PrimitiveTypeWidening(HttpRunner):
+    """OP#12 - 2-level: Base has "type": "string", derived widens
+    to "type": ["string", "number"]. Must fail because the derived
+    schema accepts values (numbers) that the base would reject.
+    """
+    config = Config(
+        "OP#12 - Primitive Type Widening"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.typewiden.field.v1~", {
+            "type": "object",
+            "required": ["fieldId", "value"],
+            "properties": {
+                "fieldId": {"type": "string"},
+                "value": {"type": "string"},
+            },
+        }, "register base with string-only value"),
+        _register_derived(
+            ("gts://gts.x.test12.typewiden.field.v1~"
+             "x.test12._.wider.v1~"),
+            "gts://gts.x.test12.typewiden.field.v1~",
+            {"type": "object", "properties": {
+                "value": {"type": ["string", "number"]},
+            }},
+            "register derived widening to [string, number]",
+        ),
+        _validate_schema(
+            ("gts.x.test12.typewiden.field.v1~"
+             "x.test12._.wider.v1~"),
+            False,
+            "validate should fail - type widened",
+        ),
+    ]
+
+
+class TestCaseTestOp12_ConstViolatesMinimum(HttpRunner):
+    """OP#12 - 2-level: Base has integer with minimum 42, derived
+    sets const 32. Must fail because const 32 < minimum 42 — the
+    derived const value violates the base constraint.
+    """
+    config = Config(
+        "OP#12 - Const Violates Minimum"
+    ).base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        _register("gts://gts.x.test12.constmin.val.v1~", {
+            "type": "object",
+            "required": ["valId", "score"],
+            "properties": {
+                "valId": {"type": "string"},
+                "score": {
+                    "type": "integer",
+                    "minimum": 42,
+                },
+            },
+        }, "register base with minimum 42"),
+        _register_derived(
+            ("gts://gts.x.test12.constmin.val.v1~"
+             "x.test12._.bad_const.v1~"),
+            "gts://gts.x.test12.constmin.val.v1~",
+            {"type": "object", "properties": {
+                "score": {
+                    "type": "integer",
+                    "const": 32,
+                },
+            }},
+            "register derived with const 32",
+        ),
+        _validate_schema(
+            ("gts.x.test12.constmin.val.v1~"
+             "x.test12._.bad_const.v1~"),
+            False,
+            "validate should fail - const 32 < minimum 42",
+        ),
+    ]
+
+
 class TestCaseValidateEntity_ValidInstance(HttpRunner):
     """Validate Entity: Valid instance through unified endpoint"""
     config = Config("Validate Entity - Valid Instance").base_url(
