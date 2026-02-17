@@ -10,12 +10,21 @@
     "tenantId",
     "occurredAt"
   ],
-  "x-event-type-settings": {
+  "x-gts-traits-schema": {
+    "type": "object",
     "additionalProperties": false,
-    "topicRef": {
-      "description": "ID of the topic where events of this type are stored.",
-      "type": "string",
-      "x-gts-ref":"gts.x.core.events.topic.v1~"
+    "properties": {
+      "topicRef": {
+        "description": "GTS ID of the topic/stream where events of this type are published.",
+        "type": "string",
+        "x-gts-ref": "gts.x.core.events.topic.v1~",
+        "default": "gts.x.core.events.topic.v1~x.core._.default.v1"
+      },
+      "retention": {
+        "description": "ISO 8601 duration for event retention.",
+        "type": "string",
+        "default": "P30D"
+      }
     }
   },
   "properties": {
