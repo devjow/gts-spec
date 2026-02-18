@@ -295,3 +295,31 @@ def test_op2_single_segment_gts_id_uses_explicit_type() -> None:
     # Type field is used for single-segment IDs (no chain to derive from)
     assert body["schema_id"] == "gts.acme.core.models.base.v1~"
     assert body["selected_schema_id_field"] == "type"
+
+
+def test_op2_combined_anonymous_id_takes_priority_over_explicit_type() -> None:
+    """
+    For combined anonymous instance identifiers (type-chain + UUID tail),
+    schema_id MUST be derived from the `id` prefix up to the last '~', and
+    any explicit `type` field is ignored.
+    """
+    url = get_gts_base_url() + "/extract-id"
+    payload = {
+        "id": (
+            "gts.x.core.events.type.v1~"
+            "x.commerce.orders.order_placed.v1.0~"
+            "7a1d2f34-5678-49ab-9012-abcdef123456"
+        ),
+        "type": "gts.different.schema.type.v1~",
+    }
+    r = requests.post(url, json=payload, timeout=30)
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["is_schema"] is False
+    assert body["id"] == payload["id"]
+    assert body["schema_id"] == (
+        "gts.x.core.events.type.v1~"
+        "x.commerce.orders.order_placed.v1.0~"
+    )
+    assert body["selected_schema_id_field"] == "id"

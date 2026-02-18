@@ -23,6 +23,12 @@ Individual events are commonly anonymous: they use a UUID `id` but still declare
 
 - `./instances/gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1~.examples.json`
 
+Alternative combined anonymous instance id form (type chain + UUID tail embedded into `id`):
+
+- Schema: `./schemas/gts.x.core.events.type_combined.v1~.schema.json`
+- Derived schema: `./schemas/gts.x.core.events.type_combined.v1~x.commerce.orders.order_placed.v1.0~.schema.json`
+- Instance: `./instances/gts.x.core.events.type_combined.v1~x.commerce.orders.order_placed.v1.0~.examples.json`
+
 ### Field name aliases (recommended)
 
 If a payload cannot use `id` / `type`, implementations may also support:

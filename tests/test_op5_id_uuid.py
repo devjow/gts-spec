@@ -62,6 +62,30 @@ class TestCaseTestOp5IdToUuid_Instance(HttpRunner):
             .assert_equal("body.uuid", "c7f8cca7-3af6-58af-b72b-3febfd93f1a8")
         ),
         Step(
+            RunRequest("uuid mapping (combined anonymous instance)")
+            .get("/uuid")
+            .with_params(
+                **{
+                    "gts_id": (
+                        "gts.x.core.events.type.v1~"
+                        "x.commerce.orders.order_placed.v1.0~"
+                        "7a1d2f34-5678-49ab-9012-abcdef123456"
+                    )
+                }
+            )
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal(
+                "body.id",
+                (
+                    "gts.x.core.events.type.v1~"
+                    "x.commerce.orders.order_placed.v1.0~"
+                    "7a1d2f34-5678-49ab-9012-abcdef123456"
+                ),
+            )
+            .assert_equal("body.uuid", "4a31b759-722b-5bb1-a1dc-2cf40963e81b")
+        ),
+        Step(
             RunRequest("uuid mapping deterministic (instance)")
             .get("/uuid")
             .with_params(

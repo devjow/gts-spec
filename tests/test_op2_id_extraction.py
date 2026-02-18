@@ -125,6 +125,50 @@ class TestCaseTestOp2IdExtraction_Case4(HttpRunner):
     ]
 
 
+class TestCaseTestOp2IdExtraction_Case7_CombinedAnonymousInstance(HttpRunner):
+    config = Config("OP#2 - Extract ID (case 7: combined anonymous instance)").base_url(
+        get_gts_base_url()
+    )
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        Step(
+            RunRequest("extract id (combined anonymous instance)")
+            .post("/extract-id")
+            .with_json({
+                "id": (
+                    "gts.x.core.events.type.v1~"
+                    "x.commerce.orders.order_placed.v1.0~"
+                    "7a1d2f34-5678-49ab-9012-abcdef123456"
+                ),
+                "occurredAt": "2025-09-20T18:35:00Z",
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal(
+                "body.id",
+                (
+                    "gts.x.core.events.type.v1~"
+                    "x.commerce.orders.order_placed.v1.0~"
+                    "7a1d2f34-5678-49ab-9012-abcdef123456"
+                ),
+            )
+            .assert_equal(
+                "body.schema_id",
+                (
+                    "gts.x.core.events.type.v1~"
+                    "x.commerce.orders.order_placed.v1.0~"
+                ),
+            )
+            .assert_equal("body.selected_entity_field", "id")
+            .assert_equal("body.selected_schema_id_field", "id")
+            .assert_equal("body.is_schema", False)
+        ),
+    ]
+
+
 class TestCaseTestOp2IdExtraction_Case5_GtsBaseSchema(HttpRunner):
     """
     Schemas MUST be detected by presence of $schema; GTS $id MUST be normalized

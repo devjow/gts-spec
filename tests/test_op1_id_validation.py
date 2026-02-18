@@ -44,6 +44,11 @@ class TestCaseTestOp1IdValidationAllValid(HttpRunner):
                     "gts.a.b.c.d.v0~",
                     "gts._._._._.v1~",
                     "gts.x.y.z.a.v999999.888888~",
+                    (
+                        "gts.x.core.events.type.v1~"
+                        "x.commerce.orders.order_placed.v1.0~"
+                        "7a1d2f34-5678-49ab-9012-abcdef123456"
+                    ),
                 ]
             }
         ),
@@ -97,6 +102,11 @@ class TestCaseTestOp1IdValidationInvalid(HttpRunner):
                     "gts.x.test1.events.v1~",
                     "gts.x.test1.namespace.type.v1~a.b.c.v1",
                     "gts.x.test1.events.type.v1.0.0~",
+                    (
+                        "gts.x.core.events.type.v1~"
+                        "x.commerce.orders.order_placed.v1.0~"
+                        "not-a-uuid"
+                    ),
                 ]
             }
         ),
