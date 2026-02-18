@@ -93,6 +93,42 @@ class TestCaseTestOp3IdParsing_LongChainInstance(HttpRunner):
     ]
 
 
+class TestCaseTestOp3IdParsing_CombinedAnonymousInstance(HttpRunner):
+    config = Config("OP#3 - Parse ID (combined anonymous instance)").base_url(
+        get_gts_base_url()
+    )
+
+    @pytest.mark.parametrize(
+        "param",
+        Parameters(
+            {
+                "id": [
+                    (
+                        "gts.x.core.events.type.v1~"
+                        "x.commerce.orders.order_placed.v1.0~"
+                        "7a1d2f34-5678-49ab-9012-abcdef123456"
+                    )
+                ]
+            }
+        ),
+    )
+    def test_start(self, param):
+        super().test_start(param)
+
+    teststeps = [
+        Step(
+            RunRequest("parse id (combined anonymous instance)")
+            .get("/parse-id")
+            .with_params(**{"gts_id": "${id}"})
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.id", "${id}")
+            .assert_equal("body.ok", True)
+            .assert_equal("body.is_schema", False)
+        ),
+    ]
+
+
 class TestCaseTestOp3Parsing_ChainedIdentifiers(HttpRunner):
     """OP#3 Extended - Chained identifier parsing"""
     config = Config("OP#3 Extended - Chained ID Parsing").base_url(

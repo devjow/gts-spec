@@ -1,4 +1,4 @@
-> **VERSION**: GTS specification draft, version 0.8Beta2
+> **VERSION**: GTS specification draft, version 0.8
 
 # Global Type System (GTS) Specification
 
@@ -94,6 +94,7 @@ See the [Practical Benefits for Service and Platform Vendors](#51-practical-bene
 | 0.7 | BREAKING: require $ref value to start with 'gts://'; strict rules for schema/instance distinction; prohibiting well-known instances without left-hand type segments  |
 | 0.8beta1 | Add OP#12 (schema vs schema validation), unified validation endpoint (/validate-entity), and clarify instance -> schema and schema -> schema validation semantics for chained GTS IDs |
 | 0.8beta2 | Introduce schema traits (`x-gts-traits-schema`, `x-gts-traits`) and OP#13 (schema traits validation) |
+| 0.8 | Add alternate combined anonymous instance identifier format |
 
 ## 1. Motivation
 
@@ -138,9 +139,11 @@ The GTS identifier is a string with total length of 1024 characters maximum.
   - `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~`
   - Note the trailing `~` to denote a type (schema) identifier.
 - A single instance identifier (object of given type):
-  - `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
-  - Well-known instance identifiers MUST include a left-hand type segment in a chain (see 2.2 and 3.7).
-  - Note: no trailing `~` for instances. The identifier ends with an integer (the last version component).
+  - Well-known instance: `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]`
+  - Combined anonymous instance: `gts.<vendor>.<package>.<namespace>.<type>.v<MAJOR>[.<MINOR>]~<UUID>`
+  - Well-known and combined anonymous instance identifiers MUST include a left-hand type segment in a chain (see 2.2 and 3.7).
+  - Combined anonymous instance identifiers MUST include a UUID tail.
+  - Note: no trailing `~` for instances. 
 
 The `<vendor>` refers to a string code that indicates the origin of a given schema or instance definition. This can be valuable in systems that support cross-vendor data exchange, such as events or configuration files, especially in environments with deployable applications or plugins.
 
@@ -155,6 +158,8 @@ The `<vendor>`, `<package>`, `<namespace>`, and `<type>` segment tokens must not
 Versioning uses semantic versioning constrained to major and optional minor: `v<MAJOR>[.<MINOR>]` where `<MAJOR>` and `<MINOR>` are non-negative integers, for example:
 - `gts.x.core.events.type.v1~` - defines a base event type in the system
 - `gts.x.core.events.type.v1.2~` - defines a specific edition v1.2 of the base event type
+
+The `<UUID>` is a 128-bit identifier (e.g., a UUID v5) that is used to identify a specific anonymous instance of a type. It is generated using a deterministic algorithm based on the type identifier and the instance data.
 
 **Examples** - The GTS identifier can be used for instance or type identifiers:
 ```bash
@@ -203,13 +208,16 @@ The complete GTS identifier syntax in Extended Backus-Naur Form (EBNF):
 
 ```ebnf
 (* Top-level identifier *)
-gts-identifier = "gts." , gts-segment , ( chain-suffix-type | chain-suffix-instance ) ;
+gts-identifier = "gts." , gts-segment , ( chain-suffix-type | chain-suffix-instance | chain-suffix-anon-instance ) ;
 
 (* Chained type ID ends with ~ *)
 chain-suffix-type      = { "~" , gts-segment } , "~" ;
 
 (* Chained instance ID MUST have at least one tilde separator and NO trailing tilde *)
 chain-suffix-instance  = "~" , gts-segment , { "~" , gts-segment } ;
+
+(* Combined anonymous instance ID ends with a UUID tail and NO trailing tilde *)
+chain-suffix-anon-instance = { "~" , gts-segment } , "~" , uuid ;
 
 (* Single GTS ID segment *)
 gts-segment    = vendor , "." , package , "." , namespace , "." , type , "." , version ;
@@ -234,6 +242,13 @@ letter           = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j"
                  | "u" | "v" | "w" | "x" | "y" | "z" ;
 digit            = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+(* UUID tail for combined anonymous instance identifiers *)
+hex-digit        = digit | "a" | "b" | "c" | "d" | "e" | "f" ;
+uuid             = 8hex , "-" , 4hex , "-" , 4hex , "-" , 4hex , "-" , 12hex ;
+8hex             = hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit ;
+4hex             = hex-digit , hex-digit , hex-digit , hex-digit ;
+12hex            = hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit , hex-digit ;
 ```
 
 **Grammar notes:**
@@ -242,11 +257,13 @@ non-zero-digit   = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 2. **Chain interpretation**: In a chained identifier `gts.<gts-segment1>~<gts-segment2>~<gts-segment3>`, each `~` acts as a separator. All segments before the final segment MUST be types (conceptually ending with `~`). The final segment determines whether the entire identifier is a type or instance.
 
-3. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It is recommended to use the placeholder only for the `<namespace>` segment.
+3. **Combined anonymous instance**: In a chained identifier of the form `gts.<gts-segment1>~...~<uuid>`, the UUID is the instance identifier tail. All segments before the UUID MUST be types (conceptually ending with `~`).
 
-4. **Normalization**: GTS identifiers must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
+4. **Placeholder rule**: Use `_` (underscore) as a segment value when the namespace is not applicable. It is recommended to use the placeholder only for the `<namespace>` segment.
 
-5. **Reserved prefix**: The `gts.` prefix is mandatory and reserved. Future versions may introduce alternative prefixes but will maintain backward compatibility.
+5. **Normalization**: GTS identifiers must be lowercase. Leading/trailing whitespace is not permitted. Canonical form has no optional spacing.
+
+6. **Reserved prefix**: The `gts.` prefix is mandatory and reserved. Future versions may introduce alternative prefixes but will maintain backward compatibility.
 
 
 ## 3. Semantics and Capabilities
@@ -506,6 +523,10 @@ Example:
   - Example (anonymous event instance):
     - `id: "7a1d2f34-5678-49ab-9012-abcdef123456"`, `type: "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~"`
   - Field naming: `type` (alternatives: `gtsType`, `gts_type`).
+
+  Some services may also support a **combined** anonymous instance representation:
+  - `id: "gts.x.core.events.type.v1~x.commerce.orders.order_placed.v1.0~7a1d2f34-5678-49ab-9012-abcdef123456"`
+  - In this case, the explicit `type` field MAY be omitted, since the schema/type can be derived from the `id` prefix up to the final `~`.
 
 This split is common in event systems: **topics/streams** are often well-known instances, while individual **events** are anonymous. See `./examples/events` and the field-level recommendations in section **9.1**.
 
@@ -1127,27 +1148,33 @@ gts\.
 `is_type` captures the optional trailing `~` (present for type IDs, absent for instance IDs).
 
 ### 8.2 Chained identifier regex
+ 
+ For chained identifiers, the pattern enforces that all segments except the final instance designator are type IDs (with `~` separators):
+ 
+ ```regex
+ ^\s*gts\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:~[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?)*(?:~(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?)?\s*$
+ ```
 
-For chained identifiers, the pattern enforces that all segments except the last are type IDs (with `~` separators):
+ **Pattern explanation:**
+ - Starts with a single absolute segment (`gts.` prefix)
+ - Followed by zero or more relative segments, each prefixed by `~`
+ - The identifier may end with:
+   - `~` (type)
+   - a segment end (instance)
+   - `~<uuid>` (combined anonymous instance)
 
-```regex
-^\s*gts\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:~[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.v(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?)*~?\s*$
-```
+ **Validation rules:**
+ 1. Standalone type identifier: MUST end with `~`
+ 2. In a chain, all elements before the final instance designator MUST be types (end with `~` in the original string).
+    - For well-known instances, the final designator is the last `<vendor>.<package>.<namespace>.<type>.v...` segment (no trailing `~`).
+    - For combined anonymous instances, the final designator is the UUID tail after the last `~`.
+ 3. Only the first segment uses the `gts.` prefix; chained segments are relative (no `gts.`)
 
-**Pattern explanation:**
-- Starts with a single absolute segment (`gts.` prefix)
-- Followed by zero or more relative segments, each prefixed by `~`
-- The final `~` is optional: present for a type, absent for an instance
-
-**Validation rules:**
-1. Standalone type identifier: MUST end with `~`
-2. In a chain, all segments except the rightmost MUST be types (end with `~` in the original string)
-3. Only the first segment uses the `gts.` prefix; chained segments are relative (no `gts.`)
-
-**Parsing strategy:**
-- Split on `~` to get raw segments; the first is absolute, the rest are relative
-- Parse the first using the absolute pattern, the rest using the relative pattern
-- Validate that all segments except possibly the last are types
+ **Parsing strategy:**
+ - Split on `~` to get raw segments; the first is absolute, the rest are relative
+ - If the final raw segment is a UUID, treat it as the combined-anonymous instance tail; otherwise treat the final raw segment as the well-known instance segment (or absent, if the identifier ends with `~`)
+ - Parse the non-UUID segments as GTS segments (first absolute, the rest relative)
+ - Validate that all segments except the final instance designator are types
 
 
 ## 9. Reference Implementation Recommendations
