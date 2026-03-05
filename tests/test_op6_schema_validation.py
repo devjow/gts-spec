@@ -1,3 +1,11 @@
+"""OP#6 - Schema Validation tests.
+
+Validates object instances against their corresponding JSON Schemas,
+including well-known instances (chained GTS IDs), anonymous instances
+(UUID id + separate type field), schema registration rules, and
+extended JSON Schema constraints (formats, nesting, enums, arrays).
+"""
+
 from .conftest import get_gts_base_url
 from httprunner import HttpRunner, Config, Step, RunRequest
 
@@ -66,11 +74,21 @@ REQUIRED_FIELD_PAYLOAD_SCHEMA = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Instance validation tests (well-known instances)
+# ---------------------------------------------------------------------------
+
+
 class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
-    """OP#6 - Schema Validation: Validate valid instance against its schema"""
+    """OP#6 - Validate a well-known instance against its derived schema.
+
+    Registers base and derived event schemas, then a valid instance with a
+    chained GTS ID. Validation must pass.
+    """
     config = Config("OP#6 - Validate Instance (valid)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -132,10 +150,15 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
 
 
 class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
-    """OP#6 - Schema Validation: Validate invalid instance (missing required field)"""
+    """OP#6 - Validate a well-known instance that violates its schema.
+
+    The instance is missing a required payload field.
+    Validation must fail.
+    """
     config = Config("OP#6 - Validate Instance (invalid)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -190,14 +213,24 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Schema registration rejection tests
+# ---------------------------------------------------------------------------
+
+
 class TestCaseTestOp6SchemaValidation_InvalidSchemaIdPrefix(HttpRunner):
-    """OP#6 - Reject JSON Schema identifier values that start with 'gts.'"""
+    """OP#6 - Reject schema whose $id uses a raw ``gts.`` prefix.
+
+    Schema identifiers must use the ``gts://`` URI scheme.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject plain gts prefix in id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -219,13 +252,18 @@ class TestCaseTestOp6SchemaValidation_InvalidSchemaIdPrefix(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_InvalidSchemaIdWildcard(HttpRunner):
-    """OP#6 - Reject JSON Schema identifier with wildcard after gts://"""
+    """OP#6 - Reject schema whose $id contains a wildcard segment.
+
+    Wildcards are not permitted in schema identifiers.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject wildcard gts:// id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -247,13 +285,18 @@ class TestCaseTestOp6SchemaValidation_InvalidSchemaIdWildcard(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_SchemaMissingId(HttpRunner):
-    """OP#6 - Reject JSON Schema documents missing $id"""
+    """OP#6 - Reject schema document that is missing a $id field.
+
+    Every GTS schema must declare its identifier via $id.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject schema without $$id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -274,13 +317,18 @@ class TestCaseTestOp6SchemaValidation_SchemaMissingId(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_SchemaNonGtsId(HttpRunner):
-    """OP#6 - Reject JSON Schema documents whose $id is not a GTS identifier"""
+    """OP#6 - Reject schema whose $id is not a GTS identifier.
+
+    Only ``gts://`` URIs are valid schema identifiers.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject non-GTS $$id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -302,13 +350,18 @@ class TestCaseTestOp6SchemaValidation_SchemaNonGtsId(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_UnknownInstanceFormat(HttpRunner):
-    """OP#6 - Reject instances missing recognizable GTS id/type fields"""
+    """OP#6 - Reject instance with no recognizable GTS id/type fields.
+
+    Instances must contain standard GTS fields (id, type, gtsId, etc.).
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject unrecognized instance layout"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -327,10 +380,14 @@ class TestCaseTestOp6SchemaValidation_UnknownInstanceFormat(HttpRunner):
 
 
 class TestCaseTestOp6ValidateInstance_NotFound(HttpRunner):
-    """OP#6 - Schema Validation: Validate non-existent instance"""
+    """OP#6 - Validate an instance that does not exist in the store.
+
+    Validation must return ok=false.
+    """
     config = Config("OP#6 - Validate Instance (not found)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -347,14 +404,23 @@ class TestCaseTestOp6ValidateInstance_NotFound(HttpRunner):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Extended JSON Schema constraint tests
+# ---------------------------------------------------------------------------
+
 
 class TestCaseTestOp6Validation_FormatValidation(HttpRunner):
-    """Test format validation (email, uuid, date-time)"""
+    """OP#6 - Validate JSON Schema format keywords (email, uuid, date-time).
+
+    Registers a schema with format constraints and a conforming instance.
+    Validation must pass.
+    """
     config = Config("OP#6 Extended - Format Validation").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -407,12 +473,17 @@ class TestCaseTestOp6Validation_FormatValidation(HttpRunner):
 
 
 class TestCaseTestOp6Validation_NestedObjects(HttpRunner):
-    """Test validation of nested object structures"""
+    """OP#6 - Validate deeply nested object structures.
+
+    Schema defines nested customer/address and items array.
+    Validation of a conforming instance must pass.
+    """
     config = Config("OP#6 Extended - Nested Object Validation").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -506,12 +577,17 @@ class TestCaseTestOp6Validation_NestedObjects(HttpRunner):
 
 
 class TestCaseTestOp6Validation_EnumConstraints(HttpRunner):
-    """Test enum value validation"""
+    """OP#6 - Validate enum value constraints.
+
+    Schema restricts status and priority to fixed sets.
+    Validation of a conforming instance must pass.
+    """
     config = Config("OP#6 Extended - Enum Validation").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -570,12 +646,17 @@ class TestCaseTestOp6Validation_EnumConstraints(HttpRunner):
 
 
 class TestCaseTestOp6Validation_ArrayConstraints(HttpRunner):
-    """Test array validation with minItems and maxItems"""
+    """OP#6 - Validate array constraints (minItems / maxItems).
+
+    Schema requires 1-5 string tags.
+    Validation of a conforming instance must pass.
+    """
     config = Config("OP#6 Extended - Array Constraints").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -630,11 +711,22 @@ class TestCaseTestOp6Validation_ArrayConstraints(HttpRunner):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Anonymous instance validation tests (UUID id + separate type field)
+# ---------------------------------------------------------------------------
+
+
 class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
-    """OP#6 - Schema Validation: Validate anonymous instance (UUID id + type field)"""
+    """OP#6 - Validate an anonymous instance identified by UUID.
+
+    The instance uses a plain UUID in the ``id`` field and a separate
+    ``type`` field for schema resolution (spec section 3.7).
+    Validation must pass.
+    """
     config = Config("OP#6 - Validate Anonymous Instance (valid)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -699,10 +791,16 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
 
 
 class TestCaseTestOp6ValidateInstance_AnonymousInstance_Invalid(HttpRunner):
-    """OP#6 - Schema Validation: Validate invalid anonymous instance (missing required payload fields)"""
+    """OP#6 - Validate an anonymous instance that violates its schema.
+
+    The instance uses a plain UUID in the ``id`` field and a separate
+    ``type`` field, but its payload is missing a required field.
+    Validation must fail.
+    """
     config = Config("OP#6 - Validate Anonymous Instance (invalid)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
