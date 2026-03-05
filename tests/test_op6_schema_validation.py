@@ -164,7 +164,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
             .post("/entities")
             .with_json({
                 "type": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
-                "id": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~x.y._.some_event2.v1.0",
+                "id": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~x.y._.some_event2.v1.0",
                 "tenantId": "11111111-2222-3333-4444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
@@ -625,6 +625,193 @@ class TestCaseTestOp6Validation_ArrayConstraints(HttpRunner):
             .validate()
             .assert_equal("status_code", 200)
             .assert_equal("body.ok", True)
+        ),
+    ]
+
+
+class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
+    """OP#6 - Schema Validation: Validate anonymous instance (UUID id + type field)"""
+    config = Config("OP#6 - Validate Anonymous Instance (valid)").base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register base event schema
+        Step(
+            RunRequest("register base event schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.test6anon.events.type.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["id", "type", "tenantId", "occurredAt"],
+                "properties": {
+                    "type": {"type": "string"},
+                    "id": {"type": "string", "format": "uuid"},
+                    "tenantId": {"type": "string", "format": "uuid"},
+                    "occurredAt": {"type": "string", "format": "date-time"},
+                    "payload": {"type": "object"}
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register derived event schema
+        Step(
+            RunRequest("register derived event schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.test6anon.events.type.v1~"},
+                    {
+                        "type": "object",
+                        "required": ["type", "payload"],
+                        "properties": {
+                            "type": {"const": "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~"},
+                            "payload": {
+                                "type": "object",
+                                "required": ["orderId", "customerId", "totalAmount", "items"],
+                                "properties": {
+                                    "orderId": {"type": "string", "format": "uuid"},
+                                    "customerId": {"type": "string", "format": "uuid"},
+                                    "totalAmount": {"type": "number"},
+                                    "items": {"type": "array", "items": {"type": "object"}}
+                                }
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register anonymous instance with UUID id and separate type field
+        Step(
+            RunRequest("register anonymous instance")
+            .post("/entities")
+            .with_json({
+                "type": "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                "id": "7a1d2f34-5678-49ab-9012-abcdef123456",
+                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "occurredAt": "2025-09-20T18:35:00Z",
+                "payload": {
+                    "orderId": "af0e3c1b-8f1e-4a27-9a9b-b7b9b70c1f01",
+                    "customerId": "0f2e4a9b-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+                    "totalAmount": 149.99,
+                    "items": [
+                        {"sku": "SKU-ABC-001", "name": "Wireless Mouse", "qty": 1, "price": 49.99}
+                    ]
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Validate the anonymous instance using its UUID
+        Step(
+            RunRequest("validate anonymous instance")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "7a1d2f34-5678-49ab-9012-abcdef123456"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.id", "7a1d2f34-5678-49ab-9012-abcdef123456")
+        ),
+    ]
+
+
+class TestCaseTestOp6ValidateInstance_AnonymousInstance_Invalid(HttpRunner):
+    """OP#6 - Schema Validation: Validate invalid anonymous instance (missing required payload fields)"""
+    config = Config("OP#6 - Validate Anonymous Instance (invalid)").base_url(get_gts_base_url())
+
+    def test_start(self):
+        super().test_start()
+
+    teststeps = [
+        # Register base event schema
+        Step(
+            RunRequest("register base event schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.test6anon.events.type.v1~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "required": ["id", "type", "tenantId", "occurredAt"],
+                "properties": {
+                    "type": {"type": "string"},
+                    "id": {"type": "string", "format": "uuid"},
+                    "tenantId": {"type": "string", "format": "uuid"},
+                    "occurredAt": {"type": "string", "format": "date-time"},
+                    "payload": {"type": "object"}
+                },
+                "additionalProperties": False
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register derived event schema with required payload fields
+        Step(
+            RunRequest("register derived event schema")
+            .post("/entities")
+            .with_json({
+                "$$id": "gts://gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
+                "$$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "allOf": [
+                    {"$$ref": "gts://gts.x.test6anon.events.type.v1~"},
+                    {
+                        "type": "object",
+                        "required": ["type", "payload"],
+                        "properties": {
+                            "type": {"const": "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~"},
+                            "payload": {
+                                "type": "object",
+                                "required": ["requiredField"],
+                                "properties": {
+                                    "requiredField": {"type": "string"}
+                                }
+                            }
+                        }
+                    }
+                ]
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register invalid anonymous instance (missing requiredField in payload)
+        Step(
+            RunRequest("register invalid anonymous instance")
+            .post("/entities")
+            .with_json({
+                "type": "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
+                "id": "8b2e3f45-6789-4abc-8123-bcdef1234567",
+                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "occurredAt": "2025-09-20T18:35:00Z",
+                "payload": {
+                    "someOtherField": "value"
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Validate the anonymous instance - should fail
+        Step(
+            RunRequest("validate anonymous instance should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "8b2e3f45-6789-4abc-8123-bcdef1234567"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+            .assert_equal("body.id", "8b2e3f45-6789-4abc-8123-bcdef1234567")
         ),
     ]
 
