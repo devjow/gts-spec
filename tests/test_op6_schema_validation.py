@@ -2,6 +2,70 @@ from .conftest import get_gts_base_url
 from httprunner import HttpRunner, Config, Step, RunRequest
 
 
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+def _base_event_schema(schema_id, id_property=None):
+    """Build a base event envelope schema with the given GTS schema identifier."""
+    if id_property is None:
+        id_property = {"type": "string"}
+    return {
+        "$$id": f"gts://{schema_id}",
+        "$$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "required": ["id", "type", "tenantId", "occurredAt"],
+        "properties": {
+            "type": {"type": "string"},
+            "id": id_property,
+            "tenantId": {"type": "string", "format": "uuid"},
+            "occurredAt": {"type": "string", "format": "date-time"},
+            "payload": {"type": "object"}
+        },
+        "additionalProperties": False
+    }
+
+
+def _derived_event_schema(base_id, derived_id, payload_schema):
+    """Build a derived event schema that extends a base via allOf with a specific payload."""
+    return {
+        "$$id": f"gts://{derived_id}",
+        "$$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "allOf": [
+            {"$$ref": f"gts://{base_id}"},
+            {
+                "type": "object",
+                "required": ["type", "payload"],
+                "properties": {
+                    "type": {"const": derived_id},
+                    "payload": payload_schema
+                }
+            }
+        ]
+    }
+
+
+ORDER_PLACED_PAYLOAD_SCHEMA = {
+    "type": "object",
+    "required": ["orderId", "customerId", "totalAmount", "items"],
+    "properties": {
+        "orderId": {"type": "string", "format": "uuid"},
+        "customerId": {"type": "string", "format": "uuid"},
+        "totalAmount": {"type": "number"},
+        "items": {"type": "array", "items": {"type": "object"}}
+    }
+}
+
+REQUIRED_FIELD_PAYLOAD_SCHEMA = {
+    "type": "object",
+    "required": ["requiredField"],
+    "properties": {
+        "requiredField": {"type": "string"}
+    }
+}
+
+
 class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
     """OP#6 - Schema Validation: Validate valid instance against its schema"""
     config = Config("OP#6 - Validate Instance (valid)").base_url(get_gts_base_url())
@@ -14,20 +78,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
         Step(
             RunRequest("register base event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["id", "type", "tenantId", "occurredAt"],
-                "properties": {
-                    "type": {"type": "string"},
-                    "id": {"type": "string", "format": "uuid"},
-                    "tenantId": {"type": "string", "format": "uuid"},
-                    "occurredAt": {"type": "string", "format": "date-time"},
-                    "payload": {"type": "object"}
-                },
-                "additionalProperties": False
-            })
+            .with_json(_base_event_schema("gts.x.test6.events.type.v1~"))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -35,31 +86,11 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
         Step(
             RunRequest("register derived event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {"$$ref": "gts://gts.x.test6.events.type.v1~"},
-                    {
-                        "type": "object",
-                        "required": ["type", "payload"],
-                        "properties": {
-                            "type": {"const": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~"},
-                            "payload": {
-                                "type": "object",
-                                "required": ["orderId", "customerId", "totalAmount", "items"],
-                                "properties": {
-                                    "orderId": {"type": "string", "format": "uuid"},
-                                    "customerId": {"type": "string", "format": "uuid"},
-                                    "totalAmount": {"type": "number"},
-                                    "items": {"type": "array", "items": {"type": "object"}}
-                                }
-                            }
-                        }
-                    }
-                ]
-            })
+            .with_json(_derived_event_schema(
+                "gts.x.test6.events.type.v1~",
+                "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                ORDER_PLACED_PAYLOAD_SCHEMA,
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -70,7 +101,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
             .with_json({
                 "type": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
                 "id": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~x.y._.some_event.v1.0",
-                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
                     "orderId": "af0e3c1b-8f1e-4a27-9a9b-b7b9b70c1f01",
@@ -112,20 +143,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
         Step(
             RunRequest("register base event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["id", "type", "tenantId", "occurredAt"],
-                "properties": {
-                    "type": {"type": "string"},
-                    "id": {"type": "string", "format": "uuid"},
-                    "tenantId": {"type": "string", "format": "uuid"},
-                    "occurredAt": {"type": "string", "format": "date-time"},
-                    "payload": {"type": "object"}
-                },
-                "additionalProperties": False
-            })
+            .with_json(_base_event_schema("gts.x.test6.events.type.v1~"))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -133,28 +151,11 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
         Step(
             RunRequest("register derived event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {"$$ref": "gts://gts.x.test6.events.type.v1~"},
-                    {
-                        "type": "object",
-                        "required": ["type", "payload"],
-                        "properties": {
-                            "type": {"const": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~"},
-                            "payload": {
-                                "type": "object",
-                                "required": ["requiredField"],
-                                "properties": {
-                                    "requiredField": {"type": "string"}
-                                }
-                            }
-                        }
-                    }
-                ]
-            })
+            .with_json(_derived_event_schema(
+                "gts.x.test6.events.type.v1~",
+                "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
+                REQUIRED_FIELD_PAYLOAD_SCHEMA,
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -165,7 +166,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
             .with_json({
                 "type": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
                 "id": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~x.y._.some_event2.v1.0",
-                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
                     "someOtherField": "value"
@@ -641,20 +642,10 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
         Step(
             RunRequest("register base event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6anon.events.type.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["id", "type", "tenantId", "occurredAt"],
-                "properties": {
-                    "type": {"type": "string"},
-                    "id": {"type": "string", "format": "uuid"},
-                    "tenantId": {"type": "string", "format": "uuid"},
-                    "occurredAt": {"type": "string", "format": "date-time"},
-                    "payload": {"type": "object"}
-                },
-                "additionalProperties": False
-            })
+            .with_json(_base_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                id_property={"type": "string", "format": "uuid"},
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -662,31 +653,11 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
         Step(
             RunRequest("register derived event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {"$$ref": "gts://gts.x.test6anon.events.type.v1~"},
-                    {
-                        "type": "object",
-                        "required": ["type", "payload"],
-                        "properties": {
-                            "type": {"const": "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~"},
-                            "payload": {
-                                "type": "object",
-                                "required": ["orderId", "customerId", "totalAmount", "items"],
-                                "properties": {
-                                    "orderId": {"type": "string", "format": "uuid"},
-                                    "customerId": {"type": "string", "format": "uuid"},
-                                    "totalAmount": {"type": "number"},
-                                    "items": {"type": "array", "items": {"type": "object"}}
-                                }
-                            }
-                        }
-                    }
-                ]
-            })
+            .with_json(_derived_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                ORDER_PLACED_PAYLOAD_SCHEMA,
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -697,7 +668,7 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
             .with_json({
                 "type": "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
                 "id": "7a1d2f34-5678-49ab-9012-abcdef123456",
-                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
                     "orderId": "af0e3c1b-8f1e-4a27-9a9b-b7b9b70c1f01",
@@ -739,20 +710,10 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance_Invalid(HttpRunner):
         Step(
             RunRequest("register base event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6anon.events.type.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["id", "type", "tenantId", "occurredAt"],
-                "properties": {
-                    "type": {"type": "string"},
-                    "id": {"type": "string", "format": "uuid"},
-                    "tenantId": {"type": "string", "format": "uuid"},
-                    "occurredAt": {"type": "string", "format": "date-time"},
-                    "payload": {"type": "object"}
-                },
-                "additionalProperties": False
-            })
+            .with_json(_base_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                id_property={"type": "string", "format": "uuid"},
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -760,28 +721,11 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance_Invalid(HttpRunner):
         Step(
             RunRequest("register derived event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {"$$ref": "gts://gts.x.test6anon.events.type.v1~"},
-                    {
-                        "type": "object",
-                        "required": ["type", "payload"],
-                        "properties": {
-                            "type": {"const": "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~"},
-                            "payload": {
-                                "type": "object",
-                                "required": ["requiredField"],
-                                "properties": {
-                                    "requiredField": {"type": "string"}
-                                }
-                            }
-                        }
-                    }
-                ]
-            })
+            .with_json(_derived_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
+                REQUIRED_FIELD_PAYLOAD_SCHEMA,
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -792,7 +736,7 @@ class TestCaseTestOp6ValidateInstance_AnonymousInstance_Invalid(HttpRunner):
             .with_json({
                 "type": "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
                 "id": "8b2e3f45-6789-4abc-8123-bcdef1234567",
-                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
                     "someOtherField": "value"
