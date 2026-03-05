@@ -1,12 +1,94 @@
+"""OP#6 - Schema Validation tests.
+
+Validates object instances against their corresponding JSON Schemas,
+including well-known instances (chained GTS IDs), anonymous instances
+(UUID id + separate type field), schema registration rules, and
+extended JSON Schema constraints (formats, nesting, enums, arrays).
+"""
+
 from .conftest import get_gts_base_url
 from httprunner import HttpRunner, Config, Step, RunRequest
 
 
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+def _base_event_schema(schema_id, id_property=None):
+    """Build a base event envelope schema with the given GTS schema identifier."""
+    if id_property is None:
+        id_property = {"type": "string"}
+    return {
+        "$$id": f"gts://{schema_id}",
+        "$$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "required": ["id", "type", "tenantId", "occurredAt"],
+        "properties": {
+            "type": {"type": "string"},
+            "id": id_property,
+            "tenantId": {"type": "string", "format": "uuid"},
+            "occurredAt": {"type": "string", "format": "date-time"},
+            "payload": {"type": "object"}
+        },
+        "additionalProperties": False
+    }
+
+
+def _derived_event_schema(base_id, derived_id, payload_schema):
+    """Build a derived event schema that extends a base via allOf with a specific payload."""
+    return {
+        "$$id": f"gts://{derived_id}",
+        "$$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "allOf": [
+            {"$$ref": f"gts://{base_id}"},
+            {
+                "type": "object",
+                "required": ["type", "payload"],
+                "properties": {
+                    "type": {"const": derived_id},
+                    "payload": payload_schema
+                }
+            }
+        ]
+    }
+
+
+ORDER_PLACED_PAYLOAD_SCHEMA = {
+    "type": "object",
+    "required": ["orderId", "customerId", "totalAmount", "items"],
+    "properties": {
+        "orderId": {"type": "string", "format": "uuid"},
+        "customerId": {"type": "string", "format": "uuid"},
+        "totalAmount": {"type": "number"},
+        "items": {"type": "array", "items": {"type": "object"}}
+    }
+}
+
+REQUIRED_FIELD_PAYLOAD_SCHEMA = {
+    "type": "object",
+    "required": ["requiredField"],
+    "properties": {
+        "requiredField": {"type": "string"}
+    }
+}
+
+
+# ---------------------------------------------------------------------------
+# Instance validation tests (well-known instances)
+# ---------------------------------------------------------------------------
+
+
 class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
-    """OP#6 - Schema Validation: Validate valid instance against its schema"""
+    """OP#6 - Validate a well-known instance against its derived schema.
+
+    Registers base and derived event schemas, then a valid instance with a
+    chained GTS ID. Validation must pass.
+    """
     config = Config("OP#6 - Validate Instance (valid)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -14,20 +96,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
         Step(
             RunRequest("register base event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["id", "type", "tenantId", "occurredAt"],
-                "properties": {
-                    "type": {"type": "string"},
-                    "id": {"type": "string", "format": "uuid"},
-                    "tenantId": {"type": "string", "format": "uuid"},
-                    "occurredAt": {"type": "string", "format": "date-time"},
-                    "payload": {"type": "object"}
-                },
-                "additionalProperties": False
-            })
+            .with_json(_base_event_schema("gts.x.test6.events.type.v1~"))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -35,31 +104,11 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
         Step(
             RunRequest("register derived event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {"$$ref": "gts://gts.x.test6.events.type.v1~"},
-                    {
-                        "type": "object",
-                        "required": ["type", "payload"],
-                        "properties": {
-                            "type": {"const": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~"},
-                            "payload": {
-                                "type": "object",
-                                "required": ["orderId", "customerId", "totalAmount", "items"],
-                                "properties": {
-                                    "orderId": {"type": "string", "format": "uuid"},
-                                    "customerId": {"type": "string", "format": "uuid"},
-                                    "totalAmount": {"type": "number"},
-                                    "items": {"type": "array", "items": {"type": "object"}}
-                                }
-                            }
-                        }
-                    }
-                ]
-            })
+            .with_json(_derived_event_schema(
+                "gts.x.test6.events.type.v1~",
+                "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                ORDER_PLACED_PAYLOAD_SCHEMA,
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -70,7 +119,7 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
             .with_json({
                 "type": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~",
                 "id": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~x.y._.some_event.v1.0",
-                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
                     "orderId": "af0e3c1b-8f1e-4a27-9a9b-b7b9b70c1f01",
@@ -101,10 +150,15 @@ class TestCaseTestOp6ValidateInstance_ValidInstance(HttpRunner):
 
 
 class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
-    """OP#6 - Schema Validation: Validate invalid instance (missing required field)"""
+    """OP#6 - Validate a well-known instance that violates its schema.
+
+    The instance is missing a required payload field.
+    Validation must fail.
+    """
     config = Config("OP#6 - Validate Instance (invalid)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -112,20 +166,7 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
         Step(
             RunRequest("register base event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "required": ["id", "type", "tenantId", "occurredAt"],
-                "properties": {
-                    "type": {"type": "string"},
-                    "id": {"type": "string", "format": "uuid"},
-                    "tenantId": {"type": "string", "format": "uuid"},
-                    "occurredAt": {"type": "string", "format": "date-time"},
-                    "payload": {"type": "object"}
-                },
-                "additionalProperties": False
-            })
+            .with_json(_base_event_schema("gts.x.test6.events.type.v1~"))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -133,28 +174,11 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
         Step(
             RunRequest("register derived event schema")
             .post("/entities")
-            .with_json({
-                "$$id": "gts://gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
-                "$$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "allOf": [
-                    {"$$ref": "gts://gts.x.test6.events.type.v1~"},
-                    {
-                        "type": "object",
-                        "required": ["type", "payload"],
-                        "properties": {
-                            "type": {"const": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~"},
-                            "payload": {
-                                "type": "object",
-                                "required": ["requiredField"],
-                                "properties": {
-                                    "requiredField": {"type": "string"}
-                                }
-                            }
-                        }
-                    }
-                ]
-            })
+            .with_json(_derived_event_schema(
+                "gts.x.test6.events.type.v1~",
+                "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
+                REQUIRED_FIELD_PAYLOAD_SCHEMA,
+            ))
             .validate()
             .assert_equal("status_code", 200)
         ),
@@ -164,8 +188,8 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
             .post("/entities")
             .with_json({
                 "type": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~",
-                "id": "gts.x.test6.events.type.v1~x.commerce.orders.order_placed.v1.0~x.y._.some_event2.v1.0",
-                "tenantId": "11111111-2222-3333-4444-555555555555",
+                "id": "gts.x.test6.events.type.v1~x.test6.invalid.event.v1.0~x.y._.some_event2.v1.0",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
                 "occurredAt": "2025-09-20T18:35:00Z",
                 "payload": {
                     "someOtherField": "value"
@@ -189,14 +213,24 @@ class TestCaseTestOp6ValidateInstance_InvalidInstance(HttpRunner):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Schema registration rejection tests
+# ---------------------------------------------------------------------------
+
+
 class TestCaseTestOp6SchemaValidation_InvalidSchemaIdPrefix(HttpRunner):
-    """OP#6 - Reject JSON Schema identifier values that start with 'gts.'"""
+    """OP#6 - Reject schema whose $id uses a raw ``gts.`` prefix.
+
+    Schema identifiers must use the ``gts://`` URI scheme.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject plain gts prefix in id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -218,13 +252,18 @@ class TestCaseTestOp6SchemaValidation_InvalidSchemaIdPrefix(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_InvalidSchemaIdWildcard(HttpRunner):
-    """OP#6 - Reject JSON Schema identifier with wildcard after gts://"""
+    """OP#6 - Reject schema whose $id contains a wildcard segment.
+
+    Wildcards are not permitted in schema identifiers.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject wildcard gts:// id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -246,13 +285,18 @@ class TestCaseTestOp6SchemaValidation_InvalidSchemaIdWildcard(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_SchemaMissingId(HttpRunner):
-    """OP#6 - Reject JSON Schema documents missing $id"""
+    """OP#6 - Reject schema document that is missing a $id field.
+
+    Every GTS schema must declare its identifier via $id.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject schema without $$id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -273,13 +317,18 @@ class TestCaseTestOp6SchemaValidation_SchemaMissingId(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_SchemaNonGtsId(HttpRunner):
-    """OP#6 - Reject JSON Schema documents whose $id is not a GTS identifier"""
+    """OP#6 - Reject schema whose $id is not a GTS identifier.
+
+    Only ``gts://`` URIs are valid schema identifiers.
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject non-GTS $$id"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -301,13 +350,18 @@ class TestCaseTestOp6SchemaValidation_SchemaNonGtsId(HttpRunner):
 
 
 class TestCaseTestOp6SchemaValidation_UnknownInstanceFormat(HttpRunner):
-    """OP#6 - Reject instances missing recognizable GTS id/type fields"""
+    """OP#6 - Reject instance with no recognizable GTS id/type fields.
+
+    Instances must contain standard GTS fields (id, type, gtsId, etc.).
+    Registration must return 422.
+    """
 
     config = Config(
         "OP#6 - Schema Validation: reject unrecognized instance layout"
     ).base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -326,10 +380,14 @@ class TestCaseTestOp6SchemaValidation_UnknownInstanceFormat(HttpRunner):
 
 
 class TestCaseTestOp6ValidateInstance_NotFound(HttpRunner):
-    """OP#6 - Schema Validation: Validate non-existent instance"""
+    """OP#6 - Validate an instance that does not exist in the store.
+
+    Validation must return ok=false.
+    """
     config = Config("OP#6 - Validate Instance (not found)").base_url(get_gts_base_url())
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -346,14 +404,23 @@ class TestCaseTestOp6ValidateInstance_NotFound(HttpRunner):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Extended JSON Schema constraint tests
+# ---------------------------------------------------------------------------
+
 
 class TestCaseTestOp6Validation_FormatValidation(HttpRunner):
-    """Test format validation (email, uuid, date-time)"""
+    """OP#6 - Validate JSON Schema format keywords (email, uuid, date-time).
+
+    Registers a schema with format constraints and a conforming instance.
+    Validation must pass.
+    """
     config = Config("OP#6 Extended - Format Validation").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -406,12 +473,17 @@ class TestCaseTestOp6Validation_FormatValidation(HttpRunner):
 
 
 class TestCaseTestOp6Validation_NestedObjects(HttpRunner):
-    """Test validation of nested object structures"""
+    """OP#6 - Validate deeply nested object structures.
+
+    Schema defines nested customer/address and items array.
+    Validation of a conforming instance must pass.
+    """
     config = Config("OP#6 Extended - Nested Object Validation").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -505,12 +577,17 @@ class TestCaseTestOp6Validation_NestedObjects(HttpRunner):
 
 
 class TestCaseTestOp6Validation_EnumConstraints(HttpRunner):
-    """Test enum value validation"""
+    """OP#6 - Validate enum value constraints.
+
+    Schema restricts status and priority to fixed sets.
+    Validation of a conforming instance must pass.
+    """
     config = Config("OP#6 Extended - Enum Validation").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -569,12 +646,17 @@ class TestCaseTestOp6Validation_EnumConstraints(HttpRunner):
 
 
 class TestCaseTestOp6Validation_ArrayConstraints(HttpRunner):
-    """Test array validation with minItems and maxItems"""
+    """OP#6 - Validate array constraints (minItems / maxItems).
+
+    Schema requires 1-5 string tags.
+    Validation of a conforming instance must pass.
+    """
     config = Config("OP#6 Extended - Array Constraints").base_url(
         get_gts_base_url()
     )
 
     def test_start(self):
+        """Run the test steps."""
         super().test_start()
 
     teststeps = [
@@ -625,6 +707,153 @@ class TestCaseTestOp6Validation_ArrayConstraints(HttpRunner):
             .validate()
             .assert_equal("status_code", 200)
             .assert_equal("body.ok", True)
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Anonymous instance validation tests (UUID id + separate type field)
+# ---------------------------------------------------------------------------
+
+
+class TestCaseTestOp6ValidateInstance_AnonymousInstance(HttpRunner):
+    """OP#6 - Validate an anonymous instance identified by UUID.
+
+    The instance uses a plain UUID in the ``id`` field and a separate
+    ``type`` field for schema resolution (spec section 3.7).
+    Validation must pass.
+    """
+    config = Config("OP#6 - Validate Anonymous Instance (valid)").base_url(get_gts_base_url())
+
+    def test_start(self):
+        """Run the test steps."""
+        super().test_start()
+
+    teststeps = [
+        # Register base event schema
+        Step(
+            RunRequest("register base event schema")
+            .post("/entities")
+            .with_json(_base_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                id_property={"type": "string", "format": "uuid"},
+            ))
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register derived event schema
+        Step(
+            RunRequest("register derived event schema")
+            .post("/entities")
+            .with_json(_derived_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                ORDER_PLACED_PAYLOAD_SCHEMA,
+            ))
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register anonymous instance with UUID id and separate type field
+        Step(
+            RunRequest("register anonymous instance")
+            .post("/entities")
+            .with_json({
+                "type": "gts.x.test6anon.events.type.v1~x.commerce.orders.order_placed.v1.0~",
+                "id": "7a1d2f34-5678-49ab-9012-abcdef123456",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
+                "occurredAt": "2025-09-20T18:35:00Z",
+                "payload": {
+                    "orderId": "af0e3c1b-8f1e-4a27-9a9b-b7b9b70c1f01",
+                    "customerId": "0f2e4a9b-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+                    "totalAmount": 149.99,
+                    "items": [
+                        {"sku": "SKU-ABC-001", "name": "Wireless Mouse", "qty": 1, "price": 49.99}
+                    ]
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+        ),
+        # Validate the anonymous instance using its UUID
+        Step(
+            RunRequest("validate anonymous instance")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "7a1d2f34-5678-49ab-9012-abcdef123456"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", True)
+            .assert_equal("body.id", "7a1d2f34-5678-49ab-9012-abcdef123456")
+        ),
+    ]
+
+
+class TestCaseTestOp6ValidateInstance_AnonymousInstance_Invalid(HttpRunner):
+    """OP#6 - Validate an anonymous instance that violates its schema.
+
+    The instance uses a plain UUID in the ``id`` field and a separate
+    ``type`` field, but its payload is missing a required field.
+    Validation must fail.
+    """
+    config = Config("OP#6 - Validate Anonymous Instance (invalid)").base_url(get_gts_base_url())
+
+    def test_start(self):
+        """Run the test steps."""
+        super().test_start()
+
+    teststeps = [
+        # Register base event schema
+        Step(
+            RunRequest("register base event schema")
+            .post("/entities")
+            .with_json(_base_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                id_property={"type": "string", "format": "uuid"},
+            ))
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register derived event schema with required payload fields
+        Step(
+            RunRequest("register derived event schema")
+            .post("/entities")
+            .with_json(_derived_event_schema(
+                "gts.x.test6anon.events.type.v1~",
+                "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
+                REQUIRED_FIELD_PAYLOAD_SCHEMA,
+            ))
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Register invalid anonymous instance (missing requiredField in payload)
+        Step(
+            RunRequest("register invalid anonymous instance")
+            .post("/entities")
+            .with_json({
+                "type": "gts.x.test6anon.events.type.v1~x.test6anon.invalid.event.v1.0~",
+                "id": "8b2e3f45-6789-4abc-8123-bcdef1234567",
+                "tenantId": "11111111-2222-3333-8444-555555555555",
+                "occurredAt": "2025-09-20T18:35:00Z",
+                "payload": {
+                    "someOtherField": "value"
+                }
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+        ),
+        # Validate the anonymous instance - should fail
+        Step(
+            RunRequest("validate anonymous instance should fail")
+            .post("/validate-instance")
+            .with_json({
+                "instance_id": "8b2e3f45-6789-4abc-8123-bcdef1234567"
+            })
+            .validate()
+            .assert_equal("status_code", 200)
+            .assert_equal("body.ok", False)
+            .assert_equal("body.id", "8b2e3f45-6789-4abc-8123-bcdef1234567")
         ),
     ]
 
