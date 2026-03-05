@@ -1,5 +1,6 @@
 import os
 import sys
+import typing
 import pytest
 import requests
 
@@ -39,6 +40,18 @@ def get_gts_base_url() -> str:
     if not url.startswith(("http://", "https://")):
         url = f"http://{url}"
     return url
+
+
+def pytest_runtest_teardown(item: pytest.Item, nextitem: typing.Optional[pytest.Item]) -> None:
+    try:
+        from loguru import logger
+    except Exception:
+        return
+
+    try:
+        logger.remove()
+    except Exception:
+        return
 
 
 @pytest.fixture(scope="session")
